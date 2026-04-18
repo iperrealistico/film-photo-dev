@@ -64,8 +64,8 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 
 ## Known Live Or Runtime Divergence
 - [Verified] A live GitHub Pages deployment now exists at `https://iperrealistico.github.io/film-photo-dev/`.
-- [Verified] The production site is served from the `gh-pages` branch, while development and release work continue from `main`.
-- [Derived] The main divergence is therefore between local source/debug workflows on `main` and the static published build currently hosted on GitHub Pages.
+- [Verified] The production site is deployed from GitHub Actions using the official Pages artifact/deploy workflow, while development and release work continue from `main`.
+- [Derived] The main divergence is therefore between local source/debug workflows on `main` and the static published build produced by the GitHub Pages deployment pipeline.
 
 ## Repository Identity
 - [Verified] The official GitHub repository URL is `https://github.com/iperrealistico/film-photo-dev.git`.

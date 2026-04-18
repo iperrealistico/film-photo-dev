@@ -48,5 +48,5 @@ An offline-first darkroom companion for color and black-and-white film developme
 - The runtime and recovery model are implemented, but real-device darkroom validation is still needed before the app should be treated as production-trustworthy.
 - Hidden debug tools can be unlocked from the app header with repeated taps or by loading the app with `?debug=1`.
 - A QA pass on 2026-04-18 expanded automated coverage and fixed a paused-timer regression that caused elapsed time to drift backward after UI-only interactions.
-- GitHub Pages is published from the `gh-pages` branch by `.github/workflows/deploy-pages.yml` after `npm run qa` and a repository-scoped production build.
+- GitHub Pages is published by the official artifact-based GitHub Pages workflow in `.github/workflows/deploy-pages.yml` after `npm run qa` and a repository-scoped production build.
 - See [docs/app-creation-plan.md](/Users/leonardofiori/Documents/Codex/film-dev/docs/app-creation-plan.md) for the broader roadmap.
