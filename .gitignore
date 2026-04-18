@@ -1,0 +1,10 @@
+# Local-only AI operations control plane
+START-HERE-AI.local.md
+documents-local/
+
+# Common local artifacts
+.DS_Store
+.playwright-cli/
+node_modules/
+dist/
+*.tsbuildinfo

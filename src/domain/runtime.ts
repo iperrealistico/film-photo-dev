@@ -1,0 +1,225 @@
+import type {
+  ActiveSessionState,
+  RuntimeFrame,
+  SessionEvent,
+  SessionPlan,
+  SessionStatus
+} from './types';
+
+function createEvent(type: SessionEvent['type'], detail: string): SessionEvent {
+  return {
+    id: `${type}-${Math.random().toString(36).slice(2, 9)}`,
+    type,
+    detail,
+    at: new Date().toISOString()
+  };
+}
+
+function appendEvent(
+  state: ActiveSessionState,
+  type: SessionEvent['type'],
+  detail: string,
+): ActiveSessionState {
+  return {
+    ...state,
+    eventLog: [...state.eventLog, createEvent(type, detail)]
+  };
+}
+
+export function createActiveSession(plan: SessionPlan, nowMs: number) {
+  return {
+    sessionId: `session-${Math.random().toString(36).slice(2, 10)}`,
+    planId: plan.id,
+    status: 'ready' as SessionStatus,
+    startEpochMs: null,
+    pauseStartedAtMs: null,
+    totalPausedMs: 0,
+    createdAtMs: nowMs,
+    lastPersistedAtMs: nowMs,
+    uncertaintyMs: 0,
+    resumeStatus: 'running' as const,
+    eventLog: [createEvent('created', 'Session created from plan review.')]
+  };
+}
+
+export function hydrateActiveSession(
+  snapshot: ActiveSessionState,
+  nowMs: number,
+): ActiveSessionState {
+  if (snapshot.status === 'running' || snapshot.status === 'paused') {
+    const uncertaintyMs = Math.max(0, nowMs - snapshot.lastPersistedAtMs);
+
+    return appendEvent(
+      {
+        ...snapshot,
+        status: 'recovering',
+        recoveryNote:
+          uncertaintyMs > 15000
+            ? 'The app was away for a while. Review timing before continuing.'
+            : 'Recovered a recent in-progress session.',
+        uncertaintyMs,
+        resumeStatus: snapshot.status
+      },
+      'recovery_needed',
+      'Recovered an in-progress session from local storage.',
+    );
+  }
+
+  return snapshot;
+}
+
+export function startSession(state: ActiveSessionState, nowMs: number) {
+  return appendEvent(
+    {
+      ...state,
+      status: 'running',
+      startEpochMs: nowMs,
+      lastPersistedAtMs: nowMs
+    },
+    'started',
+    'Session started.',
+  );
+}
+
+export function pauseSession(state: ActiveSessionState, nowMs: number) {
+  if (state.status !== 'running') {
+    return state;
+  }
+
+  return appendEvent(
+    {
+      ...state,
+      status: 'paused',
+      pauseStartedAtMs: nowMs,
+      lastPersistedAtMs: nowMs
+    },
+    'paused',
+    'Session paused.',
+  );
+}
+
+export function resumeSession(state: ActiveSessionState, nowMs: number) {
+  if (state.status !== 'paused') {
+    return state;
+  }
+
+  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+
+  return appendEvent(
+    {
+      ...state,
+      status: 'running',
+      pauseStartedAtMs: null,
+      totalPausedMs: state.totalPausedMs + pauseDuration,
+      lastPersistedAtMs: nowMs
+    },
+    'resumed',
+    'Session resumed.',
+  );
+}
+
+export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
+  const nextStatus = state.resumeStatus;
+
+  return appendEvent(
+    {
+      ...state,
+      status: nextStatus,
+      uncertaintyMs: 0,
+      recoveryNote: undefined,
+      lastPersistedAtMs: nowMs
+    },
+    'recovery_confirmed',
+    'Recovery confirmed by the user.',
+  );
+}
+
+export function abortSession(state: ActiveSessionState, nowMs: number) {
+  return appendEvent(
+    {
+      ...state,
+      status: 'aborted',
+      lastPersistedAtMs: nowMs
+    },
+    'aborted',
+    'Session stopped early.',
+  );
+}
+
+export function completeSession(state: ActiveSessionState, nowMs: number) {
+  return appendEvent(
+    {
+      ...state,
+      status: 'completed',
+      lastPersistedAtMs: nowMs
+    },
+    'completed',
+    'Session completed.',
+  );
+}
+
+export function markPersisted(state: ActiveSessionState, nowMs: number) {
+  return {
+    ...state,
+    lastPersistedAtMs: nowMs
+  };
+}
+
+function getEffectiveElapsedMs(state: ActiveSessionState, nowMs: number) {
+  if (!state.startEpochMs) {
+    return 0;
+  }
+
+  const activeNowMs =
+    state.status === 'paused' && state.pauseStartedAtMs
+      ? state.pauseStartedAtMs
+      : nowMs;
+
+  return Math.max(0, activeNowMs - state.startEpochMs - state.totalPausedMs);
+}
+
+export function deriveRuntimeFrame(
+  plan: SessionPlan,
+  state: ActiveSessionState,
+  nowMs: number,
+): RuntimeFrame {
+  const elapsedSec = Math.floor(getEffectiveElapsedMs(state, nowMs) / 1000);
+  let cursor = 0;
+
+  for (let index = 0; index < plan.phaseList.length; index += 1) {
+    const phase = plan.phaseList[index];
+    const phaseStart = cursor;
+    const phaseEnd = cursor + phase.durationSec;
+
+    if (elapsedSec < phaseEnd) {
+      const elapsedInPhaseSec = Math.max(0, elapsedSec - phaseStart);
+      const remainingInPhaseSec = Math.max(0, phase.durationSec - elapsedInPhaseSec);
+      const nextCue =
+        phase.cueEvents.find((cue) => cue.atSec >= elapsedInPhaseSec) ?? null;
+
+      return {
+        phaseIndex: index,
+        currentPhase: phase,
+        elapsedInPhaseSec,
+        remainingInPhaseSec,
+        totalElapsedSec: elapsedSec,
+        nextCue,
+        nextCueInSec: nextCue ? Math.max(0, nextCue.atSec - elapsedInPhaseSec) : null,
+        completed: false
+      };
+    }
+
+    cursor = phaseEnd;
+  }
+
+  return {
+    phaseIndex: plan.phaseList.length - 1,
+    currentPhase: null,
+    elapsedInPhaseSec: 0,
+    remainingInPhaseSec: 0,
+    totalElapsedSec: elapsedSec,
+    nextCue: null,
+    nextCueInSec: null,
+    completed: true
+  };
+}
