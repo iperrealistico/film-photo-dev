@@ -40,6 +40,7 @@ describe('registerServiceWorker', () => {
 
   it('registers the service worker after window load', async () => {
     const register = vi.fn().mockResolvedValue({ scope: 'http://localhost:4173/' });
+    const expectedWorkerUrl = `${import.meta.env.BASE_URL}sw.js`;
 
     Object.defineProperty(Navigator.prototype, 'serviceWorker', {
       configurable: true,
@@ -54,7 +55,7 @@ describe('registerServiceWorker', () => {
     window.dispatchEvent(new Event('load'));
     await Promise.resolve();
 
-    expect(register).toHaveBeenCalledWith('/sw.js');
+    expect(register).toHaveBeenCalledWith(expectedWorkerUrl);
     expect(logDebugEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         category: 'pwa',
