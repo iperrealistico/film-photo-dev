@@ -26,7 +26,7 @@ An offline-first darkroom companion for color and black-and-white film developme
 ## Hosting
 - Recommended first host: GitHub Pages
 - Why: this app is a static Vite PWA with no backend, so Pages is enough and keeps the stack simpler than Vercel for the current scope.
-- Expected Pages URL once enabled and deployed: `https://iperrealistico.github.io/film-photo-dev/`
+- Live Pages URL: `https://iperrealistico.github.io/film-photo-dev/`
 - Vercel is still a good future option if you later want preview deployments, server features, analytics, or other platform extras.
 
 ## Architecture
@@ -48,5 +48,5 @@ An offline-first darkroom companion for color and black-and-white film developme
 - The runtime and recovery model are implemented, but real-device darkroom validation is still needed before the app should be treated as production-trustworthy.
 - Hidden debug tools can be unlocked from the app header with repeated taps or by loading the app with `?debug=1`.
 - A QA pass on 2026-04-18 expanded automated coverage and fixed a paused-timer regression that caused elapsed time to drift backward after UI-only interactions.
-- GitHub Pages uses a GitHub Actions workflow in `.github/workflows/deploy-pages.yml` because Vite requires a build step.
+- GitHub Pages is published from the `gh-pages` branch by `.github/workflows/deploy-pages.yml` after `npm run qa` and a repository-scoped production build.
 - See [docs/app-creation-plan.md](/Users/leonardofiori/Documents/Codex/film-dev/docs/app-creation-plan.md) for the broader roadmap.

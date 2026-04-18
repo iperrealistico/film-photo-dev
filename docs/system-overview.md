@@ -17,6 +17,7 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 - [Verified] A first implementation now exists as a static-first Vite + React + TypeScript PWA scaffold with local recipe data, offline service-worker support, local persistence, and a mobile-first darkroom UI shell.
 - [Verified] The local QA surface now includes Vitest domain tests, JSDOM app-flow integration tests, service-worker tests, and manual Playwright-based browser verification.
 - [Verified] The repository now includes a GitHub Pages deployment workflow for the official public GitHub repository.
+- [Verified] The official public deployment is now live at `https://iperrealistico.github.io/film-photo-dev/`.
 
 ## Repository Map
 - official Git repository
@@ -54,9 +55,9 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
   - GitHub Actions workflow for GitHub Pages deployment
 
 ## Known Live Or Runtime Divergence
-- [Verified] No live deployment, runtime environment, or deployed endpoint has been verified.
-- [Verified] A local application codebase and production build now exist, and the repository now contains a GitHub Pages workflow, but no successful deployed environment has been verified yet.
-- [Derived] The main divergence is therefore between local source/build state and an as-yet-nonexistent live deployment.
+- [Verified] A live GitHub Pages deployment now exists at `https://iperrealistico.github.io/film-photo-dev/`.
+- [Verified] The production site is served from the `gh-pages` branch, while development and release work continue from `main`.
+- [Derived] The main divergence is therefore between local source/debug workflows on `main` and the static published build currently hosted on GitHub Pages.
 
 ## Repository Identity
 - [Verified] The official GitHub repository URL is `https://github.com/iperrealistico/film-photo-dev.git`.
