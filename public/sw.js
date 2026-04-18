@@ -1,4 +1,4 @@
-const CACHE_NAME = 'film-dev-shell-v2';
+const CACHE_NAME = 'film-dev-shell-v3';
 const OFFLINE_URLS = [
   './',
   './manifest.webmanifest',

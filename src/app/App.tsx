@@ -435,9 +435,12 @@ export function App() {
       preferences.themeMode === 'standard'
         ? '#0d0f10'
         : preferences.themeMode === 'red_safe'
-          ? '#180406'
-          : '#000000';
-    const meta = document.querySelector('meta[name="theme-color"]');
+          ? '#2a0408'
+          : '#4a0004';
+    const meta =
+      document.querySelector('meta[name="theme-color"]') ??
+      document.head.appendChild(document.createElement('meta'));
+    meta.setAttribute('name', 'theme-color');
     meta?.setAttribute('content', themeColor);
   }, [preferences.themeMode]);
 
@@ -1018,8 +1021,8 @@ export function App() {
                   <img src={logoSrc} alt="" width="56" height="56" />
                 </span>
                 <span className="brand-button__text">
-                  <p className="eyebrow">{screenLabels[screen]}</p>
-                  <strong>Film Dev</strong>
+                  <p className="eyebrow brand-button__eyebrow">{screenLabels[screen]}</p>
+                  <strong className="brand-button__title">Film Dev</strong>
                   <span className="brand-button__subtitle">{headerSubtitle}</span>
                 </span>
               </span>

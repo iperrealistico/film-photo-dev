@@ -113,6 +113,25 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /Export all local data/i })).toBeInTheDocument();
   });
 
+  it('updates the browser theme color when switching light modes', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    expect(themeMeta).not.toBeNull();
+    expect(themeMeta).toHaveAttribute('content', '#4a0004');
+
+    await user.click(screen.getByRole('button', { name: /^Settings$/i }));
+    await user.click(await screen.findByRole('button', { name: /Red-safe/i }));
+
+    expect(themeMeta).toHaveAttribute('content', '#2a0408');
+
+    await user.click(screen.getByRole('button', { name: /Standard/i }));
+
+    expect(themeMeta).toHaveAttribute('content', '#0d0f10');
+  });
+
   it('opens the Mix tab and recalculates ratio math from pasted notation', async () => {
     const user = userEvent.setup();
 

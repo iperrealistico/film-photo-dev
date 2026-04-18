@@ -41,6 +41,7 @@
   --radius-lg: 24px;
   --radius-md: 18px;
   --radius-sm: 14px;
+  --title-ink: var(--text);
 }
 
 * {
@@ -209,11 +210,20 @@ button {
 .session-hero h1 {
   font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   letter-spacing: -0.03em;
+  color: var(--title-ink);
 }
 
 .topbar strong {
   display: block;
   font-size: 1.1rem;
+}
+
+.brand-button__eyebrow {
+  color: var(--title-ink);
+}
+
+.brand-button__title {
+  color: var(--title-ink);
 }
 
 .title-with-icon,
@@ -1030,12 +1040,17 @@ button {
   --tone-ember-bg: rgba(167, 57, 57, 0.12);
   --tone-red-bg: rgba(167, 57, 57, 0.16);
   --panel-inner-border: rgba(187, 73, 73, 0.18);
+  --title-ink: #d94c4c;
 }
 
 .app-shell.is-red-safe .app-backdrop {
   background:
     radial-gradient(circle at 20% 20%, var(--backdrop-glow-a), transparent 36%),
     radial-gradient(circle at 80% 0%, var(--backdrop-glow-b), transparent 32%);
+}
+
+.app-shell.is-red-safe .topbar {
+  background: rgba(22, 3, 5, 0.9);
 }
 
 .app-shell.is-ultrared {
@@ -1072,6 +1087,7 @@ button {
   --status-danger-bg: rgba(255, 0, 0, 0.16);
   --status-danger-border: rgba(255, 0, 0, 0.48);
   --panel-inner-border: rgba(255, 0, 0, 0.16);
+  --title-ink: #ff4d4d;
   background: #000;
 }
 
@@ -1126,6 +1142,10 @@ button {
 
 .app-shell.is-ultrared .topbar-action {
   background: rgba(20, 0, 0, 0.84);
+}
+
+.app-shell.is-ultrared .topbar {
+  background: rgba(18, 0, 0, 0.92);
 }
 
 .app-shell.is-ultrared .field-shell,

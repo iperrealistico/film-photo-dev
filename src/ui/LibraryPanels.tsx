@@ -171,7 +171,7 @@ export function SettingsPanel({
               <span>Light mode</span>
             </span>
           </h3>
-          <p>Ultrared is the default. It keeps the interface black and red only.</p>
+          <p>Ultrared is the default. Red-safe and Ultrared keep the shell red-first for darkroom work.</p>
         </div>
         <div className="theme-mode-grid" role="group" aria-label="Darkroom light mode">
           <button
@@ -196,7 +196,7 @@ export function SettingsPanel({
               <MoonIcon aria-hidden="true" />
               <span>Red-safe</span>
             </span>
-            <strong>Dim red</strong>
+            <strong>Red mode</strong>
           </button>
           <button
             type="button"
