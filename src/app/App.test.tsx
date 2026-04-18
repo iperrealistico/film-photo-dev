@@ -64,13 +64,13 @@ describe('App', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /One app for color and B&W, without the single-file chaos/i
+        name: /Film developing, guided step by step/i
       }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Cs41 Powder/i }));
+    await user.click(screen.getByRole('button', { name: /Cs41 powder kit/i }));
 
-    expect(screen.getByRole('heading', { name: 'Cs41 Powder' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cs41 powder kit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Review plan/i })).toBeInTheDocument();
   });
 
@@ -84,7 +84,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /Save preset/i }));
 
     await user.click(screen.getByRole('button', { name: /^Recipes$/i }));
-    await user.click(screen.getByRole('button', { name: /Cs41 Powder/i }));
+    await user.click(screen.getByRole('button', { name: /Cs41 powder kit/i }));
     await user.click(screen.getByRole('button', { name: /^Saved$/i }));
 
     const savedPreset = await screen.findByRole('button', { name: /HC-110/i });
@@ -93,6 +93,70 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'HC-110' })).toBeInTheDocument();
     });
+  });
+
+  it('defaults to Ultrared and shows export actions in settings', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(
+      screen.getByRole('button', { name: /^Switch to White light$/i }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^Settings$/i }));
+
+    const ultraredButton = await screen.findByRole('button', { name: /Ultrared/i });
+    expect(ultraredButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Export presets/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export chemistry logs/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export all local data/i })).toBeInTheDocument();
+  });
+
+  it('opens the Mix tab and recalculates ratio math from pasted notation', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /^Mix$/i }));
+
+    expect(screen.getByRole('heading', { name: /Mix calculator/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /Dilute by ratio/i }));
+    const ratioInput = screen.getByDisplayValue('1+31');
+    await user.clear(ratioInput);
+    await user.type(ratioInput, '30:50');
+
+    expect(screen.getByText('187.5 ml')).toBeInTheDocument();
+    expect(screen.getByText('312.5 ml')).toBeInTheDocument();
+    expect(screen.getAllByText('500.0 ml').length).toBeGreaterThan(0);
+  });
+
+  it('surfaces HC-110 rescue guidance when the chosen dilution is too weak', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /HC-110/i }));
+
+    await user.selectOptions(screen.getByLabelText(/Film format/i), '4x5');
+    await user.clear(screen.getByLabelText(/Rolls or sheets/i));
+    await user.type(screen.getByLabelText(/Rolls or sheets/i), '6');
+    await user.selectOptions(screen.getByLabelText(/Dilution/i), '63');
+    await user.clear(screen.getByLabelText(/Working solution volume/i));
+    await user.type(screen.getByLabelText(/Working solution volume/i), '350');
+
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+
+    expect(
+      screen.getByRole('heading', { name: /HC-110 mix and capacity/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('6 sheets of 4x5')).toBeInTheDocument();
+    expect(screen.getAllByText('120.0 in²').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Too dilute/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/B · 1\+31/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Minimum volume at 1\+63/i)).toBeInTheDocument();
+    expect(screen.getByText('600 ml')).toBeInTheDocument();
   });
 
   it('rehydrates an in-progress session and asks for recovery confirmation', async () => {
@@ -115,14 +179,14 @@ describe('App', () => {
     render(<App />);
 
     expect(
-      await screen.findByRole('heading', { name: /Session recovered from local storage/i }),
+      await screen.findByRole('heading', { name: /Recovered session/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Timing uncertainty: 20 sec\./i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Continue with recovery/i }));
+    await user.click(screen.getByRole('button', { name: /^Continue$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^Pause$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Pause timer$/i })).toBeInTheDocument();
     });
 
     nowSpy.mockRestore();
@@ -134,21 +198,38 @@ describe('App', () => {
     render(<App />);
 
     const brandButton = screen.getByRole('button', {
-      name: /Film Dev Offline darkroom companion/i
+      name: /Film Dev/i
     });
 
     for (let count = 0; count < 7; count += 1) {
       await user.click(brandButton);
     }
 
-    expect(await screen.findByText(/Hidden debug tools unlocked/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Advanced diagnostics unlocked/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^Settings$/i }));
 
     expect(
-      await screen.findByRole('heading', { name: /Hidden debug tools/i }),
+      await screen.findByRole('heading', { name: /Advanced diagnostics/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Refresh log/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Record breadcrumb/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add breadcrumb/i })).toBeInTheDocument();
+  });
+
+  it('opens the About screen from the title bar and shows the creator note', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /^About$/i }));
+
+    expect(
+      await screen.findByRole('heading', { name: /Who made this strange little thing/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/passionate film photographer who occasionally fustigates himself/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Codex and GPT-5.4/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /leonardofiori.it/i })).toBeInTheDocument();
   });
 });

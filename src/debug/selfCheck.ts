@@ -26,6 +26,10 @@ export function runSelfCheck() {
 
     console.assert(plan.phaseList.length > 0, `${recipe.id} should create phases.`);
     console.assert(plan.totalDurationSec > 0, `${recipe.id} should have duration.`);
+    console.assert(
+      plan.calculationTrace.length > 0,
+      `${recipe.id} should expose a calculation trace.`,
+    );
   }
 
   logDebugEvent({
@@ -33,7 +37,15 @@ export function runSelfCheck() {
     event: 'self_check_completed',
     detail: {
       recipeCount: recipes.length,
-      alertProfiles: defaultAlertProfiles.length
+      alertProfiles: defaultAlertProfiles.length,
+      traceCounts: recipes.map((recipe) => ({
+        recipeId: recipe.id,
+        traceEntries: createSessionPlan(
+          recipe.id,
+          createDefaultInputState(recipe),
+          defaultAlertProfiles[0],
+        ).calculationTrace.length
+      }))
     }
   });
 }

@@ -38,7 +38,7 @@ export function createActiveSession(plan: SessionPlan, nowMs: number) {
     lastPersistedAtMs: nowMs,
     uncertaintyMs: 0,
     resumeStatus: 'running' as const,
-    eventLog: [createEvent('created', 'Session created from plan review.')]
+    eventLog: [createEvent('created', 'Session prepared from the review screen.')]
   };
 }
 
@@ -55,13 +55,13 @@ export function hydrateActiveSession(
         status: 'recovering',
         recoveryNote:
           uncertaintyMs > 15000
-            ? 'The app was away for a while. Review timing before continuing.'
+            ? 'The app was away for a while. Check the timer before you continue.'
             : 'Recovered a recent in-progress session.',
         uncertaintyMs,
         resumeStatus: snapshot.status
       },
       'recovery_needed',
-      'Recovered an in-progress session from local storage.',
+      'Recovered an in-progress session.',
     );
   }
 
@@ -77,7 +77,7 @@ export function startSession(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'started',
-    'Session started.',
+    'Timer started.',
   );
 }
 
@@ -94,7 +94,7 @@ export function pauseSession(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'paused',
-    'Session paused.',
+    'Timer paused.',
   );
 }
 
@@ -114,7 +114,7 @@ export function resumeSession(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'resumed',
-    'Session resumed.',
+    'Timer resumed.',
   );
 }
 
@@ -130,7 +130,7 @@ export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'recovery_confirmed',
-    'Recovery confirmed by the user.',
+    'Recovery confirmed.',
   );
 }
 
@@ -142,7 +142,7 @@ export function abortSession(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'aborted',
-    'Session stopped early.',
+    'Session ended early.',
   );
 }
 
@@ -154,7 +154,7 @@ export function completeSession(state: ActiveSessionState, nowMs: number) {
       lastPersistedAtMs: nowMs
     },
     'completed',
-    'Session completed.',
+    'Session finished.',
   );
 }
 

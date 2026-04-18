@@ -6,6 +6,17 @@ import type {
   RuntimeFrame,
   SessionPlan
 } from '../domain/types';
+import {
+  BottleIcon,
+  ClockIcon,
+  LogIcon,
+  PauseIcon,
+  PlayIcon,
+  RefreshIcon,
+  StopIcon,
+  WarningIcon,
+  WorkflowIcon
+} from './icons';
 
 interface SessionConsoleProps {
   recipe: RecipeDefinition;
@@ -47,7 +58,12 @@ export function SessionConsole({
     <section className="stack session-layout">
       <div className="session-banner">
         <div>
-          <p className="eyebrow">Darkroom mode</p>
+          <p className="eyebrow">
+            <span className="title-with-icon title-with-icon--compact">
+              <ClockIcon aria-hidden="true" />
+              <span>Darkroom mode</span>
+            </span>
+          </p>
           <strong>{recipe.developerLabel}</strong>
         </div>
         <div className="session-banner__meta">
@@ -59,18 +75,29 @@ export function SessionConsole({
       {state.status === 'recovering' ? (
         <section className="panel recovery-panel">
           <p className="eyebrow">Recovery</p>
-          <h2>Session recovered from local storage</h2>
+          <h2>
+            <span className="title-with-icon">
+              <WarningIcon aria-hidden="true" />
+              <span>Recovered session</span>
+            </span>
+          </h2>
           <p>{state.recoveryNote}</p>
           <p>
-            Timing uncertainty: {Math.round(state.uncertaintyMs / 1000)} sec. The
-            app is being honest about what it can infer.
+            Timing uncertainty: {Math.round(state.uncertaintyMs / 1000)} sec. Check
+            the timer before you continue.
           </p>
           <div className="action-row">
             <button type="button" className="secondary-button" onClick={onAbort}>
-              Stop session
+              <span className="button-label">
+                <StopIcon aria-hidden="true" />
+                <span>End session</span>
+              </span>
             </button>
             <button type="button" className="primary-button" onClick={onConfirmRecovery}>
-              Continue with recovery
+              <span className="button-label">
+                <PlayIcon aria-hidden="true" />
+                <span>Continue</span>
+              </span>
             </button>
           </div>
         </section>
@@ -91,27 +118,27 @@ export function SessionConsole({
           <p>
             {isCompletionState
               ? state.status === 'aborted'
-                ? 'The session was stopped. Reset cleanly before starting another run.'
-                : 'Stay here, review what happened, and log the chemistry if you want.'
+                ? 'This session ended early. Reset before you begin another run.'
+                : 'Review the summary and save the chemistry log if you want.'
               : frame.currentPhase?.detail}
           </p>
         </div>
         <div className="session-hero__cue">
-          <span>Next cue</span>
+          <span>Up next</span>
           <strong>
             {isCompletionState
               ? 'None'
               : frame.nextCue
                 ? `${frame.nextCue.label} in ${frame.nextCueInSec ?? 0}s`
-                : 'No more cues in this phase'}
+                : 'No more cues in this step'}
           </strong>
           {!isCompletionState ? (
             <p>
-              Phase {frame.phaseIndex + 1} of {plan.phaseList.length} · elapsed{' '}
+              Step {frame.phaseIndex + 1} of {plan.phaseList.length} · elapsed{' '}
               {formatDuration(frame.totalElapsedSec)}
             </p>
           ) : (
-            <p>Created {formatDateTime(plan.generatedAt)}</p>
+            <p>Planned {formatDateTime(plan.generatedAt)}</p>
           )}
         </div>
       </section>
@@ -120,29 +147,47 @@ export function SessionConsole({
         <div className="runtime-controls">
           {state.status === 'ready' ? (
             <button type="button" className="primary-button runtime-button" onClick={onStart}>
-              Start timer
+              <span className="button-label">
+                <PlayIcon aria-hidden="true" />
+                <span>Start timer</span>
+              </span>
             </button>
           ) : state.status === 'paused' ? (
             <button type="button" className="primary-button runtime-button" onClick={onResume}>
-              Resume
+              <span className="button-label">
+                <PlayIcon aria-hidden="true" />
+                <span>Resume timer</span>
+              </span>
             </button>
           ) : (
             <button type="button" className="primary-button runtime-button" onClick={onPause}>
-              Pause
+              <span className="button-label">
+                <PauseIcon aria-hidden="true" />
+                <span>Pause timer</span>
+              </span>
             </button>
           )}
           <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
-            Hold to stop later
+            <span className="button-label">
+              <StopIcon aria-hidden="true" />
+              <span>End session</span>
+            </span>
           </button>
         </div>
       ) : (
         <div className="action-row">
           <button type="button" className="secondary-button" onClick={onReset}>
-            Back to recipes
+            <span className="button-label">
+              <RefreshIcon aria-hidden="true" />
+              <span>New session</span>
+            </span>
           </button>
           {state.status !== 'aborted' ? (
             <button type="button" className="primary-button" onClick={onLogBatch}>
-              Log chemistry batch
+              <span className="button-label">
+                <BottleIcon aria-hidden="true" />
+                <span>Save chemistry log</span>
+              </span>
             </button>
           ) : null}
         </div>
@@ -151,8 +196,13 @@ export function SessionConsole({
       <div className="plan-grid">
         <section className="panel stack">
           <div className="panel-heading">
-            <h3>Phase stack</h3>
-            <p>Only the current and next few phases stay visible during runtime.</p>
+            <h3>
+              <span className="title-with-icon">
+                <WorkflowIcon aria-hidden="true" />
+                <span>Upcoming steps</span>
+              </span>
+            </h3>
+            <p>Keep the current step and the next few steps in view during the session.</p>
           </div>
           <div className="stack compact-stack">
             {frame.currentPhase ? (
@@ -172,8 +222,13 @@ export function SessionConsole({
 
         <section className="panel stack">
           <div className="panel-heading">
-            <h3>Event trail</h3>
-            <p>A local event log makes recovery and debugging less mysterious.</p>
+            <h3>
+              <span className="title-with-icon">
+                <LogIcon aria-hidden="true" />
+                <span>Session log</span>
+              </span>
+            </h3>
+            <p>A local event history helps with recovery and troubleshooting.</p>
           </div>
           <div className="event-log">
             {state.eventLog.slice(-6).map((event) => (
@@ -190,8 +245,13 @@ export function SessionConsole({
       {lastLoggedBatch ? (
         <section className="panel stack">
           <div className="panel-heading">
-            <h3>Latest chemistry batch</h3>
-            <p>Batch tracking is already live in the first build.</p>
+            <h3>
+              <span className="title-with-icon">
+                <BottleIcon aria-hidden="true" />
+                <span>Most recent chemistry log</span>
+              </span>
+            </h3>
+            <p>Quick reference for the last saved batch of this chemistry.</p>
           </div>
           <div className="fact-list">
             <div className="fact-row">

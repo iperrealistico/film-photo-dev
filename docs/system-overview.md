@@ -15,6 +15,11 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 - [Verified] The initial chemistry scope described by the user includes CineStill Cs41 for color and CineStill DF96 or Kodak HC-110 plus generic stop, fix, hypo clear, rinse, bath, and wetting stages for black-and-white workflows.
 - [Verified] The product must work online and offline.
 - [Verified] A first implementation now exists as a static-first Vite + React + TypeScript PWA scaffold with local recipe data, offline service-worker support, local persistence, and a mobile-first darkroom UI shell.
+- [Verified] The HC-110 planner now includes richer syrup/load guidance: total mix math, film-area conversion, dilution-capacity checks, and rescue recommendations when the selected dilution is too weak for the planned load.
+- [Verified] The app now also includes a dedicated `Mix` workspace for free-form chemistry calculations, with first-pass tools for bottle scaling, ratio dilution, multi-part chemistry scaling, and reverse “use what is left” math.
+- [Verified] The settings area now includes local export actions for saved templates/presets, chemistry batch logs, and an all-local-data bundle.
+- [Verified] The darkroom theming model now supports `standard`, `red_safe`, and a stricter `ultrared` mode, with `ultrared` selected by default and rendered using black-and-red-only styling.
+- [Verified] The UI now uses a local bundled SVG icon system in `src/ui/icons.tsx`, so iconography stays free, offline-safe, and available inside the installed PWA without any external font or CDN dependency.
 - [Verified] The local QA surface now includes Vitest domain tests, JSDOM app-flow integration tests, service-worker tests, and manual Playwright-based browser verification.
 - [Verified] The repository now includes a GitHub Pages deployment workflow for the official public GitHub repository.
 - [Verified] The official public deployment is now live at `https://iperrealistico.github.io/film-photo-dev/`.
@@ -47,9 +52,12 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 - Application code
   - Vite + React + TypeScript client
   - typed domain schema and session-planning logic
+  - typed chemistry-mix utility logic for ratio and scaling calculations
   - runtime timer and recovery behavior
   - `localStorage` and IndexedDB persistence layers
+  - exported local JSON snapshots for presets, chemistry logs, and bundled local data
   - hidden forensic debug logging with retention pruning and export tooling
+  - a local SVG icon library used across navigation, cards, headings, controls, and settings without online dependencies
   - automated QA coverage for runtime logic, app flows, and PWA registration
   - service-worker registration and manifest-driven PWA assets
   - GitHub Actions workflow for GitHub Pages deployment

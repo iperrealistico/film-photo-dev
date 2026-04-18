@@ -70,11 +70,11 @@ function getHc110SpeedOptions(values: RecipeInputMap) {
 export const recipes: RecipeDefinition[] = [
   {
     id: 'cs41-powder',
-    name: 'Cs41 Powder',
+    name: 'Cs41 powder kit',
     developerLabel: 'CineStill Cs41',
-    subtitle: 'Simplified color chemistry with push/pull and reuse handling',
+    subtitle: 'Color negative processing with push/pull and reuse adjustments',
     description:
-      'A source-labeled color workflow with temperature-driven timing, developer reuse compensation, blix handling, and guided transitions.',
+      'A guided color workflow with source-backed temperature timing, developer reuse adjustments, fixed blix timing, and a fuller post-blix timeline.',
     processType: 'color',
     family: 'color_kit',
     accentTone: 'ember',
@@ -87,9 +87,9 @@ export const recipes: RecipeDefinition[] = [
       accessedAt: '2026-04-18'
     },
     notes: [
-      'Primary authority is the CineStill instruction set.',
-      'Developer timing is temperature and reuse sensitive.',
-      'Blix remains visible as a distinct phase rather than being hidden behind final notes.'
+      'Primary source: CineStill Cs41 kit instructions.',
+      'Developer time depends on both temperature and reuse.',
+      'Blix stays visible as its own timed step and does not auto-change with reuse.'
     ],
     plannerId: 'cs41',
     inputs: [
@@ -101,6 +101,7 @@ export const recipes: RecipeDefinition[] = [
         defaultValue: '102',
         options: [
           { value: '72', label: '72 F · 22.2 C' },
+          { value: '75', label: '75 F · 23.9 C' },
           { value: '80', label: '80 F · 26.7 C' },
           { value: '85', label: '85 F · 29.4 C' },
           { value: '90', label: '90 F · 32.2 C' },
@@ -110,7 +111,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'processingMode',
-        label: 'Processing mode',
+        label: 'Exposure change',
         type: 'select',
         section: 'film',
         defaultValue: 'standard',
@@ -126,7 +127,7 @@ export const recipes: RecipeDefinition[] = [
         section: 'film',
         defaultValue: '1',
         options: [
-          { value: '-1', label: '-1 stop' },
+          { value: '-1', label: '-1 stop · pull' },
           { value: '1', label: '+1 stop' },
           { value: '2', label: '+2 stops' },
           { value: '3', label: '+3 stops' }
@@ -135,7 +136,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'chemistryState',
-        label: 'Developer state',
+        label: 'Developer condition',
         type: 'select',
         section: 'chemistry',
         defaultValue: 'fresh',
@@ -146,20 +147,20 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'solutionVolume',
-        label: 'Reuse volume',
+        label: 'Reuse batch size',
         type: 'select',
         section: 'chemistry',
-        defaultValue: 'quart',
+        defaultValue: '1000',
         options: [
-          { value: 'pint', label: 'Pint · 473 ml' },
-          { value: 'quart', label: 'Quart · 946 ml' },
-          { value: 'gallon', label: 'Gallon · 3785 ml' }
+          { value: '500', label: '500 ml batch' },
+          { value: '1000', label: '1000 ml batch' },
+          { value: '2000', label: '2000 ml batch' }
         ],
         isVisible: (values) => values.chemistryState === 'reused'
       },
       {
         id: 'filmsProcessed',
-        label: 'Films already processed',
+        label: 'Rolls already processed',
         type: 'number',
         section: 'chemistry',
         min: 1,
@@ -180,17 +181,6 @@ export const recipes: RecipeDefinition[] = [
         ]
       },
       {
-        id: 'blixMode',
-        label: 'Blix mode',
-        type: 'select',
-        section: 'workflow',
-        defaultValue: 'fixed',
-        options: [
-          { value: 'fixed', label: 'Fixed blix time' },
-          { value: 'dynamic', label: 'Reuse-adjusted blix' }
-        ]
-      },
-      {
         id: 'blixTimeMin',
         label: 'Blix time',
         type: 'number',
@@ -203,7 +193,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'transitionDelaySec',
-        label: 'Transition delay',
+        label: 'Drain and refill time',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -214,7 +204,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'warningLeadSec',
-        label: 'Prepare cue lead',
+        label: 'Early warning',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -225,7 +215,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'inversions',
-        label: 'Inversions per series',
+        label: 'Inversions per set',
         type: 'number',
         section: 'runtime',
         min: 2,
@@ -235,7 +225,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'inversionIntervalSec',
-        label: 'Inversion interval',
+        label: 'Seconds between inversions',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -250,24 +240,24 @@ export const recipes: RecipeDefinition[] = [
     id: 'kodak-hc110',
     name: 'HC-110',
     developerLabel: 'Kodak HC-110',
-    subtitle: 'Black-and-white developer with mix math and capacity checks',
+    subtitle: 'Black-and-white development with dilution math and capacity checks',
     description:
-      'A rich B&W workflow with dilution-based mix calculations, developer capacity warnings, and a full multi-bath timeline.',
+      'A guided B/W workflow with dilution-based mix calculations, developer capacity checks, and a full multi-bath timeline.',
     processType: 'bw',
     family: 'bw_concentrate',
     accentTone: 'amber',
     source: {
       id: 'source-hc110',
-      title: 'Massive Dev Chart and legacy workflow inventory',
+      title: 'Massive Dev Chart and curated workflow notes',
       label: 'Curated',
       kind: 'curated',
       url: 'https://www.digitaltruth.com/devchart.php',
       accessedAt: '2026-04-18'
     },
     notes: [
-      'Film and exposure combinations currently reflect the legacy app seed set.',
-      'Capacity checks are treated as a preserved legacy strength and made explicit.',
-      'This initial build keeps the full stop, fix, wash, and optional hypo timeline visible before start.'
+      'Film and exposure combinations currently follow the seeded recipe set for this app.',
+      'Capacity checks are shown explicitly before the session starts.',
+      'The full stop, fix, wash, and optional hypo sequence stays visible in the review.'
     ],
     plannerId: 'hc110',
     inputs: [
@@ -311,6 +301,7 @@ export const recipes: RecipeDefinition[] = [
         type: 'number',
         section: 'chemistry',
         unit: 'C',
+        helperText: 'Uses a general B/W compensation guide when you leave 20 C.',
         min: 18,
         max: 27,
         step: 1,
@@ -329,7 +320,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'tankVolumeMl',
-        label: 'Tank volume',
+        label: 'Working solution volume',
         type: 'number',
         section: 'chemistry',
         unit: 'ml',
@@ -348,13 +339,13 @@ export const recipes: RecipeDefinition[] = [
           { value: '4x5', label: '4x5 sheet' },
           { value: '5x7', label: '5x7 sheet' },
           { value: '8x10', label: '8x10 sheet' },
-          { value: '135-36exp', label: '135 · 36 exp roll' },
+          { value: '135-36exp', label: '35mm roll' },
           { value: '120', label: '120 roll' }
         ]
       },
       {
         id: 'quantity',
-        label: 'Quantity',
+        label: 'Rolls or sheets',
         type: 'number',
         section: 'film',
         min: 1,
@@ -397,7 +388,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'hypoEnabled',
-        label: 'Use hypo clear',
+        label: 'Include hypo clear',
         type: 'toggle',
         section: 'workflow',
         defaultValue: false
@@ -416,7 +407,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'drainSec',
-        label: 'Drain time',
+        label: 'Drain step time',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -427,7 +418,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'fillSec',
-        label: 'Fill time',
+        label: 'Fill step time',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -438,7 +429,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'warningLeadSec',
-        label: 'Prepare cue lead',
+        label: 'Early warning',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -449,7 +440,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'inversions',
-        label: 'Inversions per minute',
+        label: 'Inversions each set',
         type: 'number',
         section: 'runtime',
         min: 2,
@@ -461,11 +452,11 @@ export const recipes: RecipeDefinition[] = [
   },
   {
     id: 'cinestill-df96',
-    name: 'Df96 Monobath',
+    name: 'Df96 monobath',
     developerLabel: 'CineStill Df96',
     subtitle: 'A streamlined black-and-white monobath workflow',
     description:
-      'A simpler B&W process that keeps setup light, preserves a clear timeline preview, and still benefits from the same runtime engine.',
+      'A simpler B/W process with a lighter setup, a clear timeline review, and the same guided session flow.',
     processType: 'bw',
     family: 'monobath',
     accentTone: 'red',
@@ -478,14 +469,14 @@ export const recipes: RecipeDefinition[] = [
       accessedAt: '2026-04-18'
     },
     notes: [
-      'The first build treats Df96 as a simpler recipe family to prove the shared engine can stay flexible.',
-      'This keeps the multi-screen planning and runtime shell while reducing the number of baths.'
+      'Minimum monobath timing now follows the CineStill temperature/agitation guidance.',
+      'You still get the same review and guided session flow.'
     ],
     plannerId: 'df96',
     inputs: [
       {
         id: 'filmName',
-        label: 'Film label',
+        label: 'Film',
         type: 'select',
         section: 'film',
         defaultValue: 'HP5+ 400',
@@ -497,7 +488,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'temperatureF',
-        label: 'Temperature',
+        label: 'Monobath temperature',
         type: 'number',
         section: 'chemistry',
         unit: 'F',
@@ -512,6 +503,7 @@ export const recipes: RecipeDefinition[] = [
         type: 'number',
         section: 'workflow',
         unit: 'sec',
+        helperText: 'Acts as a manual override above the CineStill minimum for the chosen temperature.',
         min: 180,
         max: 720,
         step: 30,
@@ -530,7 +522,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'warningLeadSec',
-        label: 'Prepare cue lead',
+        label: 'Early warning',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
@@ -541,7 +533,7 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'inversions',
-        label: 'Inversions per minute',
+        label: 'Inversions each minute',
         type: 'number',
         section: 'runtime',
         min: 2,
@@ -556,7 +548,7 @@ export const recipes: RecipeDefinition[] = [
 export const defaultAlertProfiles: AlertProfile[] = [
   {
     id: 'balanced',
-    name: 'Balanced',
+    name: 'Balanced cues',
     audioEnabled: true,
     vibrationEnabled: true,
     visualEnabled: true,
@@ -564,7 +556,7 @@ export const defaultAlertProfiles: AlertProfile[] = [
   },
   {
     id: 'quiet',
-    name: 'Quiet',
+    name: 'Quiet cues',
     audioEnabled: false,
     vibrationEnabled: true,
     visualEnabled: true,
@@ -572,7 +564,7 @@ export const defaultAlertProfiles: AlertProfile[] = [
   },
   {
     id: 'red-safe',
-    name: 'Red-safe only',
+    name: 'Visual only',
     audioEnabled: false,
     vibrationEnabled: false,
     visualEnabled: true,

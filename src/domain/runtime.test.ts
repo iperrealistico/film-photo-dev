@@ -44,6 +44,7 @@ const simplePlan: SessionPlan = {
     }
   ],
   calculationLines: [],
+  calculationTrace: [],
   mixAmounts: [],
   warnings: [],
   readinessChecklist: [],

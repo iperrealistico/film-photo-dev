@@ -6,6 +6,8 @@ export type SourceKind =
   | 'curated'
   | 'community'
   | 'custom';
+export type ThemeMode = 'standard' | 'red_safe' | 'ultrared';
+export type MeasurementUnit = 'ml' | 'cc' | 'cl' | 'l';
 export type InputType = 'select' | 'number' | 'toggle';
 export type FieldSection = 'film' | 'chemistry' | 'workflow' | 'runtime';
 export type PhaseKind =
@@ -29,10 +31,16 @@ export type SessionStatus =
   | 'recovering'
   | 'completed'
   | 'aborted';
+export type MixCalculatorMode =
+  | 'scale_kit'
+  | 'dilution_ratio'
+  | 'multi_part'
+  | 'use_what_i_have';
 export type DebugLogLevel = 'info' | 'warn' | 'error';
 export type DebugLogCategory =
   | 'app'
   | 'ui'
+  | 'planner'
   | 'runtime'
   | 'storage'
   | 'lifecycle'
@@ -42,6 +50,51 @@ export type DebugLogCategory =
 
 export type RecipeInputValue = string | number | boolean;
 export type RecipeInputMap = Record<string, RecipeInputValue>;
+
+export interface VolumeInput {
+  amount: number;
+  unit: MeasurementUnit;
+}
+
+export interface MixScaleKitState {
+  bottleSize: VolumeInput;
+  fullYield: VolumeInput;
+  targetAmount: VolumeInput;
+}
+
+export interface MixRatioState {
+  ratioText: string;
+  chemicalParts: number;
+  waterParts: number;
+  targetAmount: VolumeInput;
+}
+
+export interface MixPartInput {
+  id: string;
+  label: string;
+  amountMl: number;
+}
+
+export interface MixMultiPartState {
+  referenceYield: VolumeInput;
+  targetAmount: VolumeInput;
+  parts: MixPartInput[];
+}
+
+export interface MixUseWhatIHaveState {
+  ratioText: string;
+  chemicalParts: number;
+  waterParts: number;
+  concentrateOnHand: VolumeInput;
+}
+
+export interface MixWorkspaceState {
+  activeMode: MixCalculatorMode;
+  scaleKit: MixScaleKitState;
+  dilutionRatio: MixRatioState;
+  multiPart: MixMultiPartState;
+  useWhatIHave: MixUseWhatIHaveState;
+}
 
 export interface SelectOption {
   value: string;
@@ -118,12 +171,28 @@ export interface MixAmount {
   emphasis?: boolean;
 }
 
+export interface CalculationTraceEntry {
+  id: string;
+  label: string;
+  value: string;
+  source: string;
+  detail?: string;
+  emphasis?: 'source' | 'derived' | 'manual' | 'warning';
+}
+
 export interface CapacityCheck {
   status: CapacityStatus;
   message: string;
   marginMl: number;
+  filmAreaSqIn: number;
+  loadLabel: string;
   minimumActiveAgentMl: number;
   actualActiveAgentMl: number;
+  minimumVolumeAtCurrentDilutionMl: number;
+  recommendedDilutionLabel?: string;
+  recommendedDilutionRatio?: number;
+  maxAreaSqInAtCurrentMix: number;
+  maxUnitsAtCurrentMix: number;
 }
 
 export interface SessionPlan {
@@ -136,6 +205,7 @@ export interface SessionPlan {
   totalDurationSec: number;
   phaseList: PhaseDefinition[];
   calculationLines: CalculationLine[];
+  calculationTrace: CalculationTraceEntry[];
   mixAmounts: MixAmount[];
   warnings: string[];
   readinessChecklist: string[];

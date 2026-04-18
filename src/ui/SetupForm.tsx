@@ -1,4 +1,14 @@
+import type { ComponentType } from 'react';
 import type { InputDefinition, RecipeDefinition, RecipeInputMap } from '../domain/types';
+import {
+  ClockIcon,
+  FilmIcon,
+  FlaskIcon,
+  ShieldIcon,
+  SlidersIcon,
+  WorkflowIcon,
+  type IconProps
+} from './icons';
 
 interface SetupFormProps {
   recipe: RecipeDefinition;
@@ -10,26 +20,31 @@ const sectionOrder: Array<{
   id: InputDefinition['section'];
   title: string;
   description: string;
+  icon: ComponentType<IconProps>;
 }> = [
   {
     id: 'film',
     title: 'Film',
-    description: 'Tell the recipe what is loaded and how you exposed it.'
+    description: 'Tell the recipe what film is in the tank and how you exposed it.',
+    icon: FilmIcon
   },
   {
     id: 'chemistry',
     title: 'Chemistry',
-    description: 'Set temperature, state, and volume-related inputs.'
+    description: 'Set temperature, dilution, and batch-specific details.',
+    icon: FlaskIcon
   },
   {
     id: 'workflow',
     title: 'Workflow',
-    description: 'Define bath timing and chemistry-specific process choices.'
+    description: 'Choose the steps and timings for this process.',
+    icon: WorkflowIcon
   },
   {
     id: 'runtime',
     title: 'Runtime',
-    description: 'Tune cue lead and darkroom handling without leaving the plan.'
+    description: 'Adjust alerts and transition timing for darkroom use.',
+    icon: ClockIcon
   }
 ];
 
@@ -38,11 +53,17 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
     <section className="stack">
       <div className="section-heading">
         <p className="eyebrow">Setup</p>
-        <h2>{recipe.name}</h2>
+        <h2>
+          <span className="title-with-icon title-with-icon--large">
+            <SlidersIcon aria-hidden="true" />
+            <span>{recipe.name}</span>
+          </span>
+        </h2>
         <p>{recipe.description}</p>
       </div>
 
       {sectionOrder.map((section) => {
+        const SectionIcon = section.icon;
         const inputs = recipe.inputs.filter((input) => {
           if (input.section !== section.id) {
             return false;
@@ -58,7 +79,12 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
         return (
           <section key={section.id} className="panel stack">
             <div className="panel-heading">
-              <h3>{section.title}</h3>
+              <h3>
+                <span className="title-with-icon">
+                  <SectionIcon aria-hidden="true" />
+                  <span>{section.title}</span>
+                </span>
+              </h3>
               <p>{section.description}</p>
             </div>
             <div className="field-grid">
@@ -121,8 +147,13 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
 
       <section className="panel stack">
         <div className="panel-heading">
-          <h3>Why this recipe is trusted</h3>
-          <p>Source confidence stays visible instead of hiding inside the math.</p>
+          <h3>
+            <span className="title-with-icon">
+              <ShieldIcon aria-hidden="true" />
+              <span>Recipe source</span>
+            </span>
+          </h3>
+          <p>Know where these numbers came from before you trust them in the darkroom.</p>
         </div>
         <div className="source-summary">
           <span className="source-chip">{recipe.source.label}</span>

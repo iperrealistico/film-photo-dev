@@ -4,9 +4,24 @@ import type {
   DebugLogEntry,
   DebugLogStats,
   DiagnosticBundle,
-  SavedPreset
+  SavedPreset,
+  ThemeMode
 } from '../domain/types';
 import type { PreferenceState } from '../storage/preferences';
+import {
+  BookmarkIcon,
+  BottleIcon,
+  BugIcon,
+  ClipboardIcon,
+  DownloadIcon,
+  MoonIcon,
+  RefreshIcon,
+  ShieldIcon,
+  SlidersIcon,
+  SunIcon,
+  TrashIcon,
+  WorkflowIcon
+} from './icons';
 
 interface SavedPanelProps {
   presets: SavedPreset[];
@@ -18,12 +33,17 @@ export function SavedPanel({ presets, onLoadPreset }: SavedPanelProps) {
     <section className="stack">
       <div className="section-heading">
         <p className="eyebrow">Saved</p>
-        <h2>Presets and repeatable workflows</h2>
-        <p>Keep the combinations you trust so setup gets shorter every time.</p>
+        <h2>
+          <span className="title-with-icon title-with-icon--large">
+            <BookmarkIcon aria-hidden="true" />
+            <span>Saved presets</span>
+          </span>
+        </h2>
+        <p>Keep the setups you trust so repeat sessions are faster.</p>
       </div>
       <section className="panel stack">
         {presets.length === 0 ? (
-          <p className="soft-copy">No presets yet. Save one from the plan review screen.</p>
+          <p className="soft-copy">No presets yet. Save one from the review screen.</p>
         ) : (
           presets.map((preset) => (
             <button
@@ -32,9 +52,14 @@ export function SavedPanel({ presets, onLoadPreset }: SavedPanelProps) {
               className="library-row"
               onClick={() => onLoadPreset(preset.id)}
             >
-              <div>
-                <strong>{preset.name}</strong>
-                <p>{preset.recipeName}</p>
+              <div className="library-row__main">
+                <span className="surface-icon surface-icon--row">
+                  <BookmarkIcon aria-hidden="true" />
+                </span>
+                <div className="library-row__content">
+                  <strong>{preset.name}</strong>
+                  <p>{preset.recipeName}</p>
+                </div>
               </div>
               <span>{formatDateTime(preset.updatedAt)}</span>
             </button>
@@ -53,19 +78,29 @@ export function ChemistryPanel({ batches }: ChemistryPanelProps) {
   return (
     <section className="stack">
       <div className="section-heading">
-        <p className="eyebrow">Chemistry</p>
-        <h2>Local batch history</h2>
-        <p>Track what was mixed, when it was last used, and how much life it still has.</p>
+        <p className="eyebrow">Batches</p>
+        <h2>
+          <span className="title-with-icon title-with-icon--large">
+            <BottleIcon aria-hidden="true" />
+            <span>Chemistry batch history</span>
+          </span>
+        </h2>
+        <p>Track what was mixed, when it was last used, and how much life it likely has left.</p>
       </div>
       <section className="panel stack">
         {batches.length === 0 ? (
-          <p className="soft-copy">No batches logged yet. Complete a session and log the chemistry from the summary view.</p>
+          <p className="soft-copy">No batches logged yet. After a session, save the chemistry from the summary screen.</p>
         ) : (
           batches.map((batch) => (
             <div key={batch.id} className="library-row is-static">
-              <div>
-                <strong>{batch.chemistryLabel}</strong>
-                <p>{batch.estimatedRemainingCapacity}</p>
+              <div className="library-row__main">
+                <span className="surface-icon surface-icon--row">
+                  <BottleIcon aria-hidden="true" />
+                </span>
+                <div className="library-row__content">
+                  <strong>{batch.chemistryLabel}</strong>
+                  <p>{batch.estimatedRemainingCapacity}</p>
+                </div>
               </div>
               <span>{formatDateTime(batch.lastUsedAt)}</span>
             </div>
@@ -78,11 +113,16 @@ export function ChemistryPanel({ batches }: ChemistryPanelProps) {
 
 interface SettingsPanelProps {
   preferences: PreferenceState;
+  presets: SavedPreset[];
+  batches: ChemistryBatch[];
   debugEntries: DebugLogEntry[];
   debugStats: DebugLogStats | null;
-  onToggleRedSafe: () => void;
+  onSelectThemeMode: (mode: ThemeMode) => void;
   onToggleHandedness: () => void;
   onToggleDiagnostics: () => void;
+  onExportPresets: () => void;
+  onExportBatches: () => void;
+  onExportAllLocalData: () => void;
   diagnostics: DiagnosticBundle;
   onCopyDiagnostics: () => void;
   onDownloadDebugLogs: () => void;
@@ -93,11 +133,16 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({
   preferences,
+  presets,
+  batches,
   debugEntries,
   debugStats,
-  onToggleRedSafe,
+  onSelectThemeMode,
   onToggleHandedness,
   onToggleDiagnostics,
+  onExportPresets,
+  onExportBatches,
+  onExportAllLocalData,
   diagnostics,
   onCopyDiagnostics,
   onDownloadDebugLogs,
@@ -109,23 +154,122 @@ export function SettingsPanel({
     <section className="stack">
       <div className="section-heading">
         <p className="eyebrow">Settings</p>
-        <h2>Darkroom defaults and diagnostics</h2>
-        <p>Keep runtime settings close, but separate from the chemistry logic.</p>
+        <h2>
+          <span className="title-with-icon title-with-icon--large">
+            <SlidersIcon aria-hidden="true" />
+            <span>Darkroom preferences</span>
+          </span>
+        </h2>
+        <p>Adjust light mode, layout, exports, and hidden diagnostics.</p>
       </div>
 
       <section className="panel stack">
-        <button type="button" className="toggle-button" onClick={onToggleRedSafe}>
-          <span>Red-safe mode</span>
-          <strong>{preferences.redSafeEnabled ? 'On' : 'Off'}</strong>
-        </button>
+        <div className="panel-heading">
+          <h3>
+            <span className="title-with-icon">
+              <MoonIcon aria-hidden="true" />
+              <span>Light mode</span>
+            </span>
+          </h3>
+          <p>Ultrared is the default. It keeps the interface black and red only.</p>
+        </div>
+        <div className="theme-mode-grid" role="group" aria-label="Darkroom light mode">
+          <button
+            type="button"
+            className={`theme-mode-button ${preferences.themeMode === 'standard' ? 'is-active' : ''}`}
+            aria-pressed={preferences.themeMode === 'standard'}
+            onClick={() => onSelectThemeMode('standard')}
+          >
+            <span className="button-label">
+              <SunIcon aria-hidden="true" />
+              <span>Standard</span>
+            </span>
+            <strong>White light</strong>
+          </button>
+          <button
+            type="button"
+            className={`theme-mode-button ${preferences.themeMode === 'red_safe' ? 'is-active' : ''}`}
+            aria-pressed={preferences.themeMode === 'red_safe'}
+            onClick={() => onSelectThemeMode('red_safe')}
+          >
+            <span className="button-label">
+              <MoonIcon aria-hidden="true" />
+              <span>Red-safe</span>
+            </span>
+            <strong>Dim red</strong>
+          </button>
+          <button
+            type="button"
+            className={`theme-mode-button ${preferences.themeMode === 'ultrared' ? 'is-active' : ''}`}
+            aria-pressed={preferences.themeMode === 'ultrared'}
+            onClick={() => onSelectThemeMode('ultrared')}
+          >
+            <span className="button-label">
+              <ShieldIcon aria-hidden="true" />
+              <span>Ultrared</span>
+            </span>
+            <strong>Default</strong>
+          </button>
+        </div>
+      </section>
+
+      <section className="panel stack">
+        <div className="panel-heading">
+          <h3>
+            <span className="title-with-icon">
+              <DownloadIcon aria-hidden="true" />
+              <span>Exports</span>
+            </span>
+          </h3>
+          <p>Download your presets, chemistry logs, or the full local dataset.</p>
+        </div>
+        <div className="fact-list">
+          <div className="fact-row">
+            <span>Saved presets</span>
+            <strong>{presets.length}</strong>
+          </div>
+          <div className="fact-row">
+            <span>Chemistry logs</span>
+            <strong>{batches.length}</strong>
+          </div>
+        </div>
+        <div className="debug-toolbar">
+          <button type="button" className="secondary-button" onClick={onExportPresets}>
+            <span className="button-label">
+              <BookmarkIcon aria-hidden="true" />
+              <span>Export presets</span>
+            </span>
+          </button>
+          <button type="button" className="secondary-button" onClick={onExportBatches}>
+            <span className="button-label">
+              <BottleIcon aria-hidden="true" />
+              <span>Export chemistry logs</span>
+            </span>
+          </button>
+          <button type="button" className="secondary-button" onClick={onExportAllLocalData}>
+            <span className="button-label">
+              <DownloadIcon aria-hidden="true" />
+              <span>Export all local data</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section className="panel stack">
         <button type="button" className="toggle-button" onClick={onToggleHandedness}>
-          <span>Thumb layout</span>
+          <span className="button-label">
+            <WorkflowIcon aria-hidden="true" />
+            <span>Control layout</span>
+          </span>
           <strong>{preferences.leftHanded ? 'Left-handed' : 'Right-handed'}</strong>
         </button>
         {preferences.debugUnlocked ? (
           <button type="button" className="toggle-button" onClick={onToggleDiagnostics}>
-            <span>Diagnostics panel</span>
-            <strong>{preferences.diagnosticsOpen ? 'Visible' : 'Hidden'}</strong>
+            <span className="button-label">
+              <BugIcon aria-hidden="true" />
+              <span>Diagnostics panel</span>
+            </span>
+            <strong>{preferences.diagnosticsOpen ? 'Shown' : 'Hidden'}</strong>
           </button>
         ) : null}
       </section>
@@ -133,24 +277,41 @@ export function SettingsPanel({
       {preferences.debugUnlocked ? (
         <section className="panel stack">
           <div className="panel-heading">
-            <h3>Hidden debug tools</h3>
+            <h3>
+              <span className="title-with-icon">
+                <BugIcon aria-hidden="true" />
+                <span>Advanced diagnostics</span>
+              </span>
+            </h3>
             <p>
-              These tools stay tucked away until unlocked so the normal runtime UI
-              stays clean for actual darkroom use.
+              These tools stay hidden until unlocked so the normal darkroom UI can
+              stay simple.
             </p>
           </div>
           <div className="debug-toolbar">
             <button type="button" className="secondary-button" onClick={onRefreshDebugLogs}>
-              Refresh log
+              <span className="button-label">
+                <RefreshIcon aria-hidden="true" />
+                <span>Refresh log</span>
+              </span>
             </button>
             <button type="button" className="secondary-button" onClick={onRecordBreadcrumb}>
-              Record breadcrumb
+              <span className="button-label">
+                <ClipboardIcon aria-hidden="true" />
+                <span>Add breadcrumb</span>
+              </span>
             </button>
             <button type="button" className="secondary-button" onClick={onDownloadDebugLogs}>
-              Download file
+              <span className="button-label">
+                <DownloadIcon aria-hidden="true" />
+                <span>Download log file</span>
+              </span>
             </button>
             <button type="button" className="secondary-button" onClick={onClearDebugLogs}>
-              Clear log
+              <span className="button-label">
+                <TrashIcon aria-hidden="true" />
+                <span>Clear log</span>
+              </span>
             </button>
           </div>
           {debugStats ? (
@@ -160,14 +321,14 @@ export function SettingsPanel({
                 <strong>{debugStats.entryCount}</strong>
               </div>
               <div className="fact-row">
-                <span>Retention</span>
+                <span>Kept for</span>
                 <strong>
                   {Math.round(debugStats.maxAgeMs / (1000 * 60 * 60 * 24))} days /{' '}
                   {debugStats.maxEntries} max
                 </strong>
               </div>
               <div className="fact-row">
-                <span>Last pruned</span>
+                <span>Last cleanup</span>
                 <strong>{debugStats.lastPrunedAt ? formatDateTime(debugStats.lastPrunedAt) : 'Not yet'}</strong>
               </div>
             </div>
@@ -188,7 +349,7 @@ export function SettingsPanel({
               </article>
             ))}
             {debugEntries.length === 0 ? (
-              <p className="soft-copy">The hidden log is empty right now.</p>
+              <p className="soft-copy">No hidden log entries right now.</p>
             ) : null}
           </div>
         </section>
@@ -197,18 +358,29 @@ export function SettingsPanel({
       {preferences.debugUnlocked && preferences.diagnosticsOpen ? (
         <section className="panel stack">
           <div className="panel-heading">
-            <h3>Diagnostics</h3>
-            <p>Local debugging stays in the product because there is no backend to lean on.</p>
+            <h3>
+              <span className="title-with-icon">
+                <ClipboardIcon aria-hidden="true" />
+                <span>Diagnostics bundle</span>
+              </span>
+            </h3>
+            <p>This is the local snapshot used for troubleshooting.</p>
           </div>
           <pre className="diagnostic-block">
             {JSON.stringify(diagnostics, null, 2)}
           </pre>
           <div className="debug-toolbar">
             <button type="button" className="secondary-button" onClick={onCopyDiagnostics}>
-              Copy diagnostics JSON
+              <span className="button-label">
+                <ClipboardIcon aria-hidden="true" />
+                <span>Copy diagnostics</span>
+              </span>
             </button>
             <button type="button" className="secondary-button" onClick={onDownloadDebugLogs}>
-              Download debug bundle
+              <span className="button-label">
+                <DownloadIcon aria-hidden="true" />
+                <span>Download debug bundle</span>
+              </span>
             </button>
           </div>
         </section>

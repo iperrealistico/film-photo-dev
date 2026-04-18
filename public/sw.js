@@ -1,5 +1,14 @@
-const CACHE_NAME = 'film-dev-shell-v1';
-const OFFLINE_URLS = ['./', './manifest.webmanifest', './icons/icon.svg'];
+const CACHE_NAME = 'film-dev-shell-v2';
+const OFFLINE_URLS = [
+  './',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png',
+  './icons/favicon-32.png',
+  './icons/favicon-16.png',
+  './icons/favicon.ico'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -9,6 +9,7 @@ import {
   subscribeDebugLogChanges
 } from '../debug/logging';
 import { formatDuration } from '../domain/format';
+import { createDefaultMixWorkspaceState } from '../domain/mix';
 import { createDefaultInputState, createSessionPlan } from '../domain/planner';
 import {
   abortSession,
@@ -27,15 +28,31 @@ import type {
   DebugLogEntry,
   DebugLogStats,
   DiagnosticBundle,
+  MixWorkspaceState,
   RecipeInputMap,
   SavedPreset,
-  SessionPlan
+  SessionPlan,
+  ThemeMode
 } from '../domain/types';
+import { AboutPanel } from '../ui/AboutPanel';
+import { MixPanel } from '../ui/MixPanel';
 import {
   ChemistryPanel,
   SavedPanel,
   SettingsPanel
 } from '../ui/LibraryPanels';
+import {
+  BookIcon,
+  BookmarkIcon,
+  BottleIcon,
+  ChevronLeftIcon,
+  ClipboardIcon,
+  FlaskIcon,
+  InfoIcon,
+  MoonIcon,
+  SlidersIcon,
+  SunIcon
+} from '../ui/icons';
 import { PlanReview } from '../ui/PlanReview';
 import { RecipeBrowser } from '../ui/RecipeBrowser';
 import { SessionConsole } from '../ui/SessionConsole';
@@ -58,11 +75,13 @@ import {
 
 type Screen =
   | 'recipes'
+  | 'mix'
   | 'setup'
   | 'plan'
   | 'session'
   | 'saved'
   | 'chemistry'
+  | 'about'
   | 'settings';
 
 const appVersion = '0.1.0';
@@ -71,6 +90,69 @@ const recipeVersion = '2026-04-18';
 const initialDrafts = Object.fromEntries(
   recipes.map((recipe) => [recipe.id, createDefaultInputState(recipe)]),
 ) satisfies Record<string, RecipeInputMap>;
+
+const navigationItems = [
+  {
+    screen: 'recipes',
+    label: 'Recipes',
+    icon: BookIcon
+  },
+  {
+    screen: 'mix',
+    label: 'Mix',
+    icon: FlaskIcon
+  },
+  {
+    screen: 'saved',
+    label: 'Saved',
+    icon: BookmarkIcon
+  },
+  {
+    screen: 'chemistry',
+    label: 'Batches',
+    icon: BottleIcon
+  },
+  {
+    screen: 'settings',
+    label: 'Settings',
+    icon: SlidersIcon
+  }
+] satisfies Array<{
+  screen: Exclude<Screen, 'setup' | 'plan' | 'session' | 'about'>;
+  label: string;
+  icon: typeof BookIcon;
+}>;
+
+const screenLabels: Record<Screen, string> = {
+  recipes: 'Recipes',
+  mix: 'Mix',
+  setup: 'Setup',
+  plan: 'Review',
+  session: 'Darkroom',
+  saved: 'Saved',
+  chemistry: 'Batches',
+  about: 'About',
+  settings: 'Settings'
+};
+
+function buildExportFileName(label: string) {
+  const stamp = new Date().toISOString().replaceAll(':', '-');
+  return `film-dev-${label}-${stamp}.json`;
+}
+
+function downloadJsonFile(filename: string, payload: unknown) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json'
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 function playCueTone() {
   if (!('AudioContext' in window || 'webkitAudioContext' in window)) {
@@ -112,8 +194,12 @@ function getInitialPreferences() {
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('recipes');
+  const [aboutReturnScreen, setAboutReturnScreen] = useState<Screen>('recipes');
   const [selectedRecipeId, setSelectedRecipeId] = useState(recipes[0].id);
   const [drafts, setDrafts] = useState(initialDrafts);
+  const [mixWorkspace, setMixWorkspace] = useState<MixWorkspaceState>(
+    createDefaultMixWorkspaceState,
+  );
   const [preferences, setPreferences] = useState<PreferenceState>(getInitialPreferences);
   const [activePlan, setActivePlan] = useState<SessionPlan | null>(null);
   const [activeSession, setActiveSession] = useState<ActiveSessionState | null>(null);
@@ -137,10 +223,37 @@ export function App() {
   const alertProfile = resolveAlertProfile(defaultAlertProfiles, preferences);
   const draftPlan = createSessionPlan(selectedRecipeId, selectedDraft, alertProfile);
   const livePlan = activePlan ?? draftPlan;
+  const logoSrc = `${import.meta.env.BASE_URL}icons/icon-192.png`;
   const runtimeFrame =
     activePlan && activeSession
       ? deriveRuntimeFrame(activePlan, activeSession, nowMs)
       : null;
+  const quickThemeLabel =
+    preferences.themeMode === 'standard' ? 'Switch to Ultrared' : 'Switch to White light';
+  const headerSubtitle =
+    screen === 'recipes'
+      ? 'Offline film developing guide'
+      : screen === 'mix'
+        ? 'Chemistry math without panic'
+        : screen === 'saved'
+          ? 'Trusted setups you can reload fast'
+          : screen === 'chemistry'
+            ? 'Batches, history, and reuse notes'
+            : screen === 'settings'
+              ? 'Darkroom modes, exports, and diagnostics'
+              : screen === 'about'
+                ? 'Who made this and why it exists'
+                : selectedRecipe.name;
+  const backTarget =
+    screen === 'setup'
+      ? 'recipes'
+      : screen === 'plan'
+        ? 'setup'
+        : screen === 'about'
+          ? aboutReturnScreen
+          : null;
+  const showAboutButton = screen !== 'about' && screen !== 'session';
+  const showBackButton = backTarget !== null;
 
   function logUiEvent(event: string, detail?: unknown) {
     logDebugEvent({
@@ -148,6 +261,22 @@ export function App() {
       event,
       detail,
       recipeId: selectedRecipeId,
+      sessionId: activeSession?.sessionId
+    });
+  }
+
+  function logPlannerEvent(event: string, plan: SessionPlan, detail?: unknown) {
+    logDebugEvent({
+      category: 'planner',
+      event,
+      detail: {
+        planId: plan.id,
+        warnings: plan.warnings,
+        capacityCheck: plan.capacityCheck,
+        calculationTrace: plan.calculationTrace,
+        ...((detail as Record<string, unknown> | undefined) ?? {})
+      },
+      recipeId: plan.recipeId,
       sessionId: activeSession?.sessionId
     });
   }
@@ -293,6 +422,26 @@ export function App() {
   }, [screen]);
 
   useEffect(() => {
+    document.title =
+      screen === 'setup' || screen === 'plan' || screen === 'session'
+        ? `Film Dev · ${selectedRecipe.name}`
+        : screen === 'about'
+          ? 'Film Dev · About'
+          : `Film Dev · ${screenLabels[screen]}`;
+  }, [screen, selectedRecipe.name]);
+
+  useEffect(() => {
+    const themeColor =
+      preferences.themeMode === 'standard'
+        ? '#0d0f10'
+        : preferences.themeMode === 'red_safe'
+          ? '#180406'
+          : '#000000';
+    const meta = document.querySelector('meta[name="theme-color"]');
+    meta?.setAttribute('content', themeColor);
+  }, [preferences.themeMode]);
+
+  useEffect(() => {
     if (!activePlan || !activeSession) {
       clearActiveSessionSnapshot();
       return;
@@ -433,7 +582,8 @@ export function App() {
     activeSession: activeSession ?? undefined,
     diagnostics: [
       `screen:${screen}`,
-      `red-safe:${preferences.redSafeEnabled}`,
+      `mix-mode:${mixWorkspace.activeMode}`,
+      `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
       `presets:${presets.length}`,
       `batches:${batches.length}`,
@@ -483,7 +633,7 @@ export function App() {
     try {
       await savePreset(preset);
       await refreshLocalData('save-preset');
-      showToast('Preset saved locally.');
+      showToast('Preset saved.');
     } catch (error) {
       logDebugEvent({
         level: 'error',
@@ -492,7 +642,7 @@ export function App() {
         detail: { error },
         recipeId: selectedRecipe.id
       });
-      showToast('Preset save failed.');
+      showToast("Couldn't save the preset.");
     }
   }
 
@@ -523,6 +673,10 @@ export function App() {
     const now = Date.now();
     const session = beginSessionState(createActiveSession(draftPlan, now), now);
 
+    logPlannerEvent('plan_committed_to_session', draftPlan, {
+      screen,
+      nextSessionId: session.sessionId
+    });
     logDebugEvent({
       category: 'runtime',
       event: 'session_start_requested',
@@ -550,11 +704,11 @@ export function App() {
       sessionsLogged: 1,
       estimatedRemainingCapacity:
         plan.capacityCheck?.status === 'danger'
-          ? 'Capacity already strained'
+          ? 'Already near the recommended capacity limit'
           : selectedRecipe.processType === 'color'
-            ? 'Track per roll in next revision'
-            : 'Comfortable for another similar session',
-      notes: `Logged from ${plan.recipeName}.`
+            ? 'Track roll count and developer age'
+            : 'Likely fine for another similar run',
+      notes: `Logged after ${plan.recipeName}.`
     };
 
     try {
@@ -563,7 +717,7 @@ export function App() {
       });
       await saveBatch(batch);
       await refreshLocalData('save-batch');
-      showToast('Chemistry batch logged.');
+      showToast('Chemistry log saved.');
     } catch (error) {
       logDebugEvent({
         level: 'error',
@@ -571,7 +725,7 @@ export function App() {
         event: 'batch_log_failed',
         detail: { error }
       });
-      showToast('Chemistry batch log failed.');
+      showToast("Couldn't save the chemistry log.");
     }
   }
 
@@ -588,7 +742,7 @@ export function App() {
         event: 'diagnostics_copy_failed',
         detail: { error }
       });
-      showToast('Clipboard copy failed.');
+      showToast("Couldn't copy diagnostics.");
     }
   }
 
@@ -604,7 +758,7 @@ export function App() {
         event: 'diagnostics_download_failed',
         detail: { error }
       });
-      showToast('Debug download failed.');
+      showToast("Couldn't download the debug file.");
     }
   }
 
@@ -615,7 +769,7 @@ export function App() {
       event: 'debug_logs_cleared_manually'
     });
     await syncDebugState('manual-clear');
-    showToast('Hidden debug log cleared.');
+    showToast('Hidden log cleared.');
   }
 
   async function handleRecordBreadcrumb() {
@@ -632,7 +786,7 @@ export function App() {
       sessionId: activeSession?.sessionId
     });
     await syncDebugState('manual-breadcrumb');
-    showToast('Debug breadcrumb recorded.');
+    showToast('Breadcrumb added.');
   }
 
   function handleResetSession() {
@@ -640,6 +794,24 @@ export function App() {
     setActivePlan(null);
     setActiveSession(null);
     setScreen('recipes');
+  }
+
+  function handleOpenAbout() {
+    logUiEvent('about_opened', { fromScreen: screen });
+    setAboutReturnScreen(screen);
+    setScreen('about');
+  }
+
+  function handleTopbarBack() {
+    if (!backTarget) {
+      return;
+    }
+
+    logUiEvent('topbar_back_selected', {
+      fromScreen: screen,
+      nextScreen: backTarget
+    });
+    setScreen(backTarget);
   }
 
   function handleSecretDebugTap() {
@@ -659,22 +831,42 @@ export function App() {
         category: 'diagnostics',
         event: 'debug_tools_unlocked_secret_tap'
       });
-      showToast('Hidden debug tools unlocked.');
+      showToast('Advanced diagnostics unlocked.');
     }
   }
 
   function handleNavigate(nextScreen: Screen) {
     logUiEvent('bottom_nav_selected', { nextScreen });
+
+    if (nextScreen === 'plan') {
+      logPlannerEvent('plan_review_requested', draftPlan, {
+        fromScreen: screen
+      });
+    }
+
     setScreen(nextScreen);
   }
 
-  function handleToggleRedSafe() {
-    logUiEvent('red_safe_toggled', {
-      nextValue: !preferences.redSafeEnabled
+  function handleSetThemeMode(mode: ThemeMode) {
+    logUiEvent('theme_mode_selected', {
+      nextValue: mode
     });
     setPreferences((current) => ({
       ...current,
-      redSafeEnabled: !current.redSafeEnabled
+      themeMode: mode
+    }));
+  }
+
+  function handleQuickThemeToggle() {
+    const nextMode = preferences.themeMode === 'standard' ? 'ultrared' : 'standard';
+
+    logUiEvent('theme_mode_quick_toggled', {
+      currentValue: preferences.themeMode,
+      nextValue: nextMode
+    });
+    setPreferences((current) => ({
+      ...current,
+      themeMode: nextMode
     }));
   }
 
@@ -698,28 +890,155 @@ export function App() {
     }));
   }
 
+  function handleExportPresets() {
+    try {
+      downloadJsonFile(
+        buildExportFileName('saved-templates'),
+        {
+          exportedAt: new Date().toISOString(),
+          kind: 'saved_templates',
+          count: presets.length,
+          presets
+        },
+      );
+      logUiEvent('saved_templates_exported', {
+        count: presets.length
+      });
+      showToast('Presets exported.');
+    } catch (error) {
+      logDebugEvent({
+        level: 'error',
+        category: 'storage',
+        event: 'saved_templates_export_failed',
+        detail: { error, count: presets.length }
+      });
+      showToast("Couldn't export presets.");
+    }
+  }
+
+  function handleExportBatches() {
+    try {
+      downloadJsonFile(
+        buildExportFileName('chemistry-logs'),
+        {
+          exportedAt: new Date().toISOString(),
+          kind: 'chemistry_logs',
+          count: batches.length,
+          batches
+        },
+      );
+      logUiEvent('chemistry_logs_exported', {
+        count: batches.length
+      });
+      showToast('Chemistry logs exported.');
+    } catch (error) {
+      logDebugEvent({
+        level: 'error',
+        category: 'storage',
+        event: 'chemistry_logs_export_failed',
+        detail: { error, count: batches.length }
+      });
+      showToast("Couldn't export chemistry logs.");
+    }
+  }
+
+  function handleExportAllLocalData() {
+    try {
+      downloadJsonFile(
+        buildExportFileName('local-data'),
+        {
+          exportedAt: new Date().toISOString(),
+          kind: 'all_local_data',
+          preferences,
+          presets,
+          batches,
+          activePlan,
+          activeSession
+        },
+      );
+      logUiEvent('all_local_data_exported', {
+        presets: presets.length,
+        batches: batches.length,
+        hasActivePlan: Boolean(activePlan),
+        hasActiveSession: Boolean(activeSession)
+      });
+      showToast('All local data exported.');
+    } catch (error) {
+      logDebugEvent({
+        level: 'error',
+        category: 'storage',
+        event: 'all_local_data_export_failed',
+        detail: {
+          error,
+          presets: presets.length,
+          batches: batches.length
+        }
+      });
+      showToast("Couldn't export all local data.");
+    }
+  }
+
   const lastBatchForSelectedRecipe = batches.find(
     (batch) => batch.chemistryLabel === selectedRecipe.developerLabel,
   );
+  const QuickThemeIcon = preferences.themeMode === 'standard' ? MoonIcon : SunIcon;
 
   return (
     <div
       className={[
         'app-shell',
-        preferences.redSafeEnabled ? 'is-red-safe' : '',
+        preferences.themeMode === 'red_safe' ? 'is-red-safe' : '',
+        preferences.themeMode === 'ultrared' ? 'is-ultrared' : '',
         preferences.leftHanded ? 'is-left-handed' : ''
       ].join(' ')}
     >
       <div className="app-backdrop" />
       <main className="app-frame">
         <header className="topbar">
-          <button type="button" className="brand-button" onClick={handleSecretDebugTap}>
-            <p className="eyebrow">Film Dev</p>
-            <strong>Offline darkroom companion</strong>
-          </button>
+          <div className="topbar__leading">
+            {showBackButton ? (
+              <button
+                type="button"
+                className="topbar-action topbar-action--nav"
+                onClick={handleTopbarBack}
+              >
+                <span className="button-label">
+                  <ChevronLeftIcon aria-hidden="true" />
+                  <span>Back</span>
+                </span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="brand-button brand-button--header"
+              onClick={handleSecretDebugTap}
+            >
+              <span className="brand-button__content">
+                <span className="brand-badge">
+                  <img src={logoSrc} alt="" width="56" height="56" />
+                </span>
+                <span className="brand-button__text">
+                  <p className="eyebrow">{screenLabels[screen]}</p>
+                  <strong>Film Dev</strong>
+                  <span className="brand-button__subtitle">{headerSubtitle}</span>
+                </span>
+              </span>
+            </button>
+          </div>
           <div className="topbar__tools">
-            <button type="button" className="icon-button" onClick={handleToggleRedSafe}>
-              {preferences.redSafeEnabled ? 'White light' : 'Red-safe'}
+            {showAboutButton ? (
+              <button type="button" className="topbar-action" onClick={handleOpenAbout}>
+                <span className="button-label">
+                  <InfoIcon aria-hidden="true" />
+                  <span>About</span>
+                </span>
+              </button>
+            ) : null}
+            <button type="button" className="topbar-action" onClick={handleQuickThemeToggle}>
+              <span className="button-label">
+                <QuickThemeIcon aria-hidden="true" />
+                <span>{quickThemeLabel}</span>
+              </span>
             </button>
           </div>
         </header>
@@ -742,14 +1061,20 @@ export function App() {
                   className="secondary-button"
                   onClick={() => handleNavigate('recipes')}
                 >
-                  Back
+                  <span className="button-label">
+                    <BookIcon aria-hidden="true" />
+                    <span>Back to recipes</span>
+                  </span>
                 </button>
                 <button
                   type="button"
                   className="primary-button"
                   onClick={() => handleNavigate('plan')}
                 >
-                  Review plan
+                  <span className="button-label">
+                    <ClipboardIcon aria-hidden="true" />
+                    <span>Review plan</span>
+                  </span>
                 </button>
               </div>
             </section>
@@ -806,6 +1131,14 @@ export function App() {
             />
           ) : null}
 
+          {screen === 'mix' ? (
+            <MixPanel
+              workspace={mixWorkspace}
+              onChange={setMixWorkspace}
+              onEvent={logUiEvent}
+            />
+          ) : null}
+
           {screen === 'saved' ? (
             <SavedPanel presets={presets} onLoadPreset={handleLoadPreset} />
           ) : null}
@@ -815,12 +1148,17 @@ export function App() {
           {screen === 'settings' ? (
             <SettingsPanel
               preferences={preferences}
+              presets={presets}
+              batches={batches}
               diagnostics={diagnostics}
               debugEntries={debugEntries}
               debugStats={debugStats}
-              onToggleRedSafe={handleToggleRedSafe}
+              onSelectThemeMode={handleSetThemeMode}
               onToggleHandedness={handleToggleHandedness}
               onToggleDiagnostics={handleToggleDiagnostics}
+              onExportPresets={handleExportPresets}
+              onExportBatches={handleExportBatches}
+              onExportAllLocalData={handleExportAllLocalData}
               onCopyDiagnostics={handleCopyDiagnostics}
               onDownloadDebugLogs={handleDownloadDebugLogs}
               onRefreshDebugLogs={() => void syncDebugState('manual-refresh')}
@@ -828,38 +1166,29 @@ export function App() {
               onRecordBreadcrumb={() => void handleRecordBreadcrumb()}
             />
           ) : null}
+
+          {screen === 'about' ? <AboutPanel /> : null}
         </div>
 
         {screen !== 'session' ? (
           <nav className="bottom-nav">
-            <button
-              type="button"
-              className={screen === 'recipes' ? 'is-active' : ''}
-              onClick={() => handleNavigate('recipes')}
-            >
-              Recipes
-            </button>
-            <button
-              type="button"
-              className={screen === 'saved' ? 'is-active' : ''}
-              onClick={() => handleNavigate('saved')}
-            >
-              Saved
-            </button>
-            <button
-              type="button"
-              className={screen === 'chemistry' ? 'is-active' : ''}
-              onClick={() => handleNavigate('chemistry')}
-            >
-              Chemistry
-            </button>
-            <button
-              type="button"
-              className={screen === 'settings' ? 'is-active' : ''}
-              onClick={() => handleNavigate('settings')}
-            >
-              Settings
-            </button>
+            {navigationItems.map((item) => {
+              const NavIcon = item.icon;
+
+              return (
+                <button
+                  key={item.screen}
+                  type="button"
+                  className={screen === item.screen ? 'is-active' : ''}
+                  onClick={() => handleNavigate(item.screen)}
+                >
+                  <span className="nav-button__content">
+                    <NavIcon aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </span>
+                </button>
+              );
+            })}
           </nav>
         ) : null}
 

@@ -1,7 +1,8 @@
 import type {
   ActiveSessionState,
   AlertProfile,
-  SessionPlan
+  SessionPlan,
+  ThemeMode
 } from '../domain/types';
 import { logDebugEvent } from '../debug/logging';
 
@@ -10,19 +11,40 @@ const activeSessionKey = 'film-dev/active-session/v1';
 
 export interface PreferenceState {
   alertProfileId: string;
-  redSafeEnabled: boolean;
+  themeMode: ThemeMode;
   leftHanded: boolean;
   diagnosticsOpen: boolean;
   debugUnlocked: boolean;
 }
 
+interface LegacyPreferenceState {
+  alertProfileId?: string;
+  redSafeEnabled?: boolean;
+  themeMode?: ThemeMode;
+  leftHanded?: boolean;
+  diagnosticsOpen?: boolean;
+  debugUnlocked?: boolean;
+}
+
 const defaultPreferences: PreferenceState = {
   alertProfileId: 'balanced',
-  redSafeEnabled: false,
+  themeMode: 'ultrared',
   leftHanded: false,
   diagnosticsOpen: false,
   debugUnlocked: false
 };
+
+function resolveStoredThemeMode(rawPreferences: LegacyPreferenceState) {
+  if (rawPreferences.themeMode) {
+    return rawPreferences.themeMode;
+  }
+
+  if (rawPreferences.redSafeEnabled === true) {
+    return 'red_safe';
+  }
+
+  return defaultPreferences.themeMode;
+}
 
 export function loadPreferences() {
   if (typeof localStorage === 'undefined') {
@@ -40,16 +62,18 @@ export function loadPreferences() {
   }
 
   try {
+    const parsed = JSON.parse(raw) as LegacyPreferenceState;
     const preferences = {
       ...defaultPreferences,
-      ...JSON.parse(raw)
+      ...parsed,
+      themeMode: resolveStoredThemeMode(parsed)
     } satisfies PreferenceState;
 
     logDebugEvent({
       category: 'storage',
       event: 'preferences_loaded',
       detail: {
-        redSafeEnabled: preferences.redSafeEnabled,
+        themeMode: preferences.themeMode,
         leftHanded: preferences.leftHanded,
         diagnosticsOpen: preferences.diagnosticsOpen,
         debugUnlocked: preferences.debugUnlocked
@@ -77,7 +101,7 @@ export function savePreferences(preferences: PreferenceState) {
     category: 'storage',
     event: 'preferences_saved',
     detail: {
-      redSafeEnabled: preferences.redSafeEnabled,
+      themeMode: preferences.themeMode,
       leftHanded: preferences.leftHanded,
       diagnosticsOpen: preferences.diagnosticsOpen,
       debugUnlocked: preferences.debugUnlocked
