@@ -207,6 +207,8 @@ export function SetupForm({ recipe, plan, values, onChange }: SetupFormProps) {
                       <button
                         type="button"
                         className={`toggle-button ${rawValue ? 'is-on' : ''}`}
+                        aria-label={input.label}
+                        aria-pressed={Boolean(rawValue)}
                         onClick={() => onChange(input.id, !rawValue)}
                       >
                         <span>{rawValue ? 'Enabled' : 'Disabled'}</span>

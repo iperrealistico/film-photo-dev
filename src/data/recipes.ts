@@ -74,7 +74,7 @@ export const recipes: RecipeDefinition[] = [
     developerLabel: 'CineStill Cs41',
     subtitle: 'Color negative processing with push/pull and reuse adjustments',
     description:
-      'A guided color workflow with source-backed temperature timing, developer reuse adjustments, fixed blix timing, and a fuller post-blix timeline.',
+      'A guided color workflow with source-backed temperature timing, developer reuse adjustments by processed units, optional blix compensation, and a fuller post-blix timeline.',
     processType: 'color',
     family: 'color_kit',
     accentTone: 'ember',
@@ -88,8 +88,8 @@ export const recipes: RecipeDefinition[] = [
     },
     notes: [
       'Primary source: CineStill Cs41 kit instructions.',
-      'Developer time depends on both temperature and reuse.',
-      'Blix stays visible as its own timed step and does not auto-change with reuse.'
+      'Developer time depends on both temperature and the number of prior units this chemistry has already processed.',
+      'Blix stays fixed by default, but you can opt into the same progressive reuse increase if your blix starts feeling tired.'
     ],
     plannerId: 'cs41',
     inputs: [
@@ -146,27 +146,16 @@ export const recipes: RecipeDefinition[] = [
         ]
       },
       {
-        id: 'solutionVolume',
-        label: 'Reuse batch size',
-        type: 'select',
-        section: 'chemistry',
-        defaultValue: '1000',
-        options: [
-          { value: '500', label: '500 ml batch' },
-          { value: '1000', label: '1000 ml batch' },
-          { value: '2000', label: '2000 ml batch' }
-        ],
-        isVisible: (values) => values.chemistryState === 'reused'
-      },
-      {
-        id: 'filmsProcessed',
-        label: 'Rolls already processed',
+        id: 'processedUnits',
+        label: 'Units already processed',
         type: 'number',
         section: 'chemistry',
         min: 1,
         max: 50,
         step: 1,
         defaultValue: 1,
+        helperText:
+          '1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets. Count the total prior units this chemistry has already developed.',
         isVisible: (values) => values.chemistryState === 'reused'
       },
       {
@@ -190,6 +179,16 @@ export const recipes: RecipeDefinition[] = [
         max: 12,
         step: 0.5,
         defaultValue: 8
+      },
+      {
+        id: 'extendBlixWithReuse',
+        label: 'Increase blix with reuse',
+        type: 'toggle',
+        section: 'workflow',
+        defaultValue: false,
+        helperText:
+          'Off by default. CineStill keeps blix time fixed, but you can add the same 2% per prior unit if your blix feels tired.',
+        isVisible: (values) => values.chemistryState === 'reused'
       },
       {
         id: 'transitionDelaySec',

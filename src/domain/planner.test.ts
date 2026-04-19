@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultAlertProfiles, recipes } from '../data/recipes';
-import { createDefaultInputState, createSessionPlan } from './planner';
+import { createDefaultInputState, createSessionPlan, normalizeInputState } from './planner';
 import { createActiveSession, deriveRuntimeFrame, hydrateActiveSession } from './runtime';
 
 function getMixAmount(plan: ReturnType<typeof createSessionPlan>, label: string) {
@@ -174,7 +174,7 @@ describe('session planning', () => {
     ).toBe(true);
   });
 
-  it('uses official Cs41 push and reuse rules while keeping blix fixed', () => {
+  it('uses 2% per processed unit for Cs41 weakened developer while keeping blix fixed by default', () => {
     const recipe = recipes.find((entry) => entry.id === 'cs41-powder');
 
     if (!recipe) {
@@ -186,22 +186,74 @@ describe('session planning', () => {
       {
         ...createDefaultInputState(recipe),
         temperatureF: '102',
-        processingMode: 'pushpull',
-        pushPullStops: '2',
         chemistryState: 'reused',
-        solutionVolume: '1000',
-        filmsProcessed: 3
+        processedUnits: 5
       },
       defaultAlertProfiles[0],
     );
 
     expect(plan.phaseList[0]?.label).toBe('Pre-soak');
-    expect(plan.phaseList[1]?.durationSec).toBe(390);
+    expect(plan.phaseList[1]?.durationSec).toBe(231);
     expect(plan.phaseList.find((phase) => phase.label === 'Blix')?.durationSec).toBe(480);
     expect(plan.phaseList.find((phase) => phase.label === 'Wash')?.durationSec).toBe(180);
     expect(
+      plan.warnings.some((warning) =>
+        /1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets/i.test(
+          warning,
+        ),
+      ),
+    ).toBe(true);
+    expect(
       plan.warnings.some((warning) => /blix reuse does not change/i.test(warning)),
     ).toBe(true);
+  });
+
+  it('can optionally extend Cs41 blix with the same reuse multiplier as developer', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cs41-powder');
+
+    if (!recipe) {
+      throw new Error('Missing Cs41 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        temperatureF: '102',
+        chemistryState: 'reused',
+        processedUnits: 5,
+        extendBlixWithReuse: true
+      },
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.phaseList.find((phase) => phase.label === 'Developer')?.durationSec).toBe(231);
+    expect(plan.phaseList.find((phase) => phase.label === 'Blix')?.durationSec).toBe(528);
+    expect(
+      plan.warnings.some((warning) => /optional blix extension is active/i.test(warning)),
+    ).toBe(true);
+  });
+
+  it('normalizes legacy Cs41 reuse counts without preserving the old batch-size multiplier', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cs41-powder');
+
+    if (!recipe) {
+      throw new Error('Missing Cs41 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      normalizeInputState(recipe, {
+        temperatureF: '102',
+        chemistryState: 'reused',
+        solutionVolume: '500',
+        filmsProcessed: 3
+      }),
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.phaseList.find((phase) => phase.label === 'Developer')?.durationSec).toBe(223);
+    expect(plan.phaseList.find((phase) => phase.label === 'Blix')?.durationSec).toBe(480);
   });
 
   it('raises DF96 monobath time to the minimum for the chosen temperature', () => {

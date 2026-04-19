@@ -16,6 +16,7 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 - [Verified] The product must work online and offline.
 - [Verified] A first implementation now exists as a static-first Vite + React + TypeScript PWA scaffold with local recipe data, offline service-worker support, local persistence, and a mobile-first darkroom UI shell.
 - [Verified] The HC-110 planner now includes richer syrup/load guidance: total mix math, film-area conversion, dilution-capacity checks, and rescue recommendations when the selected dilution is too weak for the planned load.
+- [Verified] The Cs41 planner now asks for previously processed roll-equivalent units, applies CineStill-style `+2%` developer extension per prior unit, and keeps blix fixed by default while offering an optional matching blix-extension fallback when the user wants it.
 - [Verified] The app now also includes a dedicated `Mix` workspace for free-form chemistry calculations, with first-pass tools for bottle scaling, ratio dilution, multi-part chemistry scaling, and reverse “use what is left” math.
 - [Verified] The settings area now includes local export actions for saved templates/presets, chemistry batch logs, and an all-local-data bundle.
 - [Verified] The settings area now also includes persistent interaction controls for screen animations and button sounds, and the app resets the view to the top when users switch screens so navigation stays clear on mobile.

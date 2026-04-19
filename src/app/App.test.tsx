@@ -82,6 +82,26 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /Review plan/i })).toBeInTheDocument();
   });
 
+  it('asks for previously processed Cs41 units and exposes the optional blix extension toggle', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Cs41 powder kit/i }));
+    await user.selectOptions(screen.getByLabelText(/Developer condition/i), 'reused');
+
+    expect(screen.getByText(/Units already processed/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Reuse batch size/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Increase blix with reuse/i }),
+    ).toBeInTheDocument();
+  });
+
   it('saves a preset and reloads it from the saved library', async () => {
     const user = userEvent.setup();
 
@@ -330,12 +350,12 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /Add breadcrumb/i })).toBeInTheDocument();
   });
 
-  it('opens the About screen from the title bar and shows the creator note', async () => {
+  it('opens the About screen from the page footer link and shows the creator note', async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: /^About$/i }));
+    await user.click(screen.getByRole('button', { name: /About this app/i }));
 
     expect(
       await screen.findByRole('heading', { name: /Who made this strange little thing/i }),

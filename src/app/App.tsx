@@ -10,7 +10,11 @@ import {
 } from '../debug/logging';
 import { formatDuration } from '../domain/format';
 import { createDefaultMixWorkspaceState } from '../domain/mix';
-import { createDefaultInputState, createSessionPlan } from '../domain/planner';
+import {
+  createDefaultInputState,
+  createSessionPlan,
+  normalizeInputState
+} from '../domain/planner';
 import {
   abortSession,
   completeSession,
@@ -48,7 +52,6 @@ import {
   ChevronLeftIcon,
   ClipboardIcon,
   FlaskIcon,
-  InfoIcon,
   ShieldIcon,
   SlidersIcon,
   SunIcon
@@ -285,7 +288,7 @@ export function App() {
   const appFrameRef = useRef<HTMLElement | null>(null);
 
   const selectedRecipe = getRecipeById(selectedRecipeId);
-  const selectedDraft = drafts[selectedRecipeId] ?? createDefaultInputState(selectedRecipe);
+  const selectedDraft = normalizeInputState(selectedRecipe, drafts[selectedRecipeId]);
   const alertProfile = resolveAlertProfile(defaultAlertProfiles, preferences);
   const draftPlan = createSessionPlan(selectedRecipeId, selectedDraft, alertProfile);
   const livePlan = activePlan ?? draftPlan;
@@ -298,6 +301,24 @@ export function App() {
     preferences.themeMode === 'standard' ? 'Switch to Red safe' : 'Switch to White light';
   const quickThemeCompactLabel =
     preferences.themeMode === 'standard' ? 'Red safe' : 'White light';
+  const headerEyebrow =
+    screen === 'setup' || screen === 'plan' || screen === 'session'
+      ? selectedRecipe.name
+      : 'Film Dev';
+  const headerTitle =
+    screen === 'mix'
+      ? 'Mix calculator'
+      : screen === 'saved'
+        ? 'Saved presets'
+        : screen === 'chemistry'
+          ? 'Chemistry log'
+          : screen === 'plan'
+            ? 'Review plan'
+            : screen === 'session'
+              ? 'Darkroom session'
+              : screen === 'about'
+                ? 'About Film Dev'
+                : screenLabels[screen];
   const headerSubtitle =
     screen === 'recipes'
       ? 'Offline film developing guide'
@@ -311,7 +332,7 @@ export function App() {
               ? 'Darkroom modes, interaction, and diagnostics'
               : screen === 'about'
                 ? 'Who made this and why it exists'
-                : selectedRecipe.name;
+                : null;
   const backTarget =
     screen === 'setup'
       ? 'recipes'
@@ -320,8 +341,8 @@ export function App() {
         : screen === 'about'
           ? aboutReturnScreen
           : null;
-  const showAboutButton = screen !== 'about' && screen !== 'session';
   const showBackButton = backTarget !== null;
+  const showAboutLink = screen !== 'about';
 
   function logUiEvent(event: string, detail?: unknown) {
     logDebugEvent({
@@ -1139,8 +1160,18 @@ export function App() {
     >
       <div className="app-backdrop" />
       <main className="app-frame" ref={appFrameRef}>
+        <button
+          type="button"
+          className="brand-corner-button"
+          aria-label="Film Dev"
+          onClick={handleSecretDebugTap}
+        >
+          <span className="brand-corner-button__badge">
+            <img src={logoSrc} alt="" width="52" height="52" />
+          </span>
+        </button>
         <header className="topbar">
-          <div className="topbar__leading">
+          <div className="topbar__slot topbar__slot--nav">
             {showBackButton ? (
               <button
                 type="button"
@@ -1153,32 +1184,15 @@ export function App() {
                 </span>
               </button>
             ) : null}
-            <button
-              type="button"
-              className="brand-button brand-button--header"
-              onClick={handleSecretDebugTap}
-            >
-              <span className="brand-button__content">
-                <span className="brand-badge">
-                  <img src={logoSrc} alt="" width="56" height="56" />
-                </span>
-                <span className="brand-button__text">
-                  <p className="eyebrow brand-button__eyebrow">{screenLabels[screen]}</p>
-                  <strong className="brand-button__title">Film Dev</strong>
-                  <span className="brand-button__subtitle">{headerSubtitle}</span>
-                </span>
-              </span>
-            </button>
           </div>
-          <div className="topbar__tools">
-            {showAboutButton ? (
-              <button type="button" className="topbar-action" onClick={handleOpenAbout}>
-                <span className="button-label">
-                  <InfoIcon aria-hidden="true" />
-                  <span>About</span>
-                </span>
-              </button>
-            ) : null}
+
+          <div className="topbar__center">
+            <p className="topbar__eyebrow">{headerEyebrow}</p>
+            <strong className="topbar__title">{headerTitle}</strong>
+            {headerSubtitle ? <span className="topbar__subtitle">{headerSubtitle}</span> : null}
+          </div>
+
+          <div className="topbar__slot topbar__slot--tools">
             <button
               type="button"
               className="topbar-action topbar-action--theme"
@@ -1187,12 +1201,7 @@ export function App() {
             >
               <span className="button-label">
                 <QuickThemeIcon aria-hidden="true" />
-                <span className="topbar-action__label-full" aria-hidden="true">
-                  {quickThemeLabel}
-                </span>
-                <span className="topbar-action__label-compact" aria-hidden="true">
-                  {quickThemeCompactLabel}
-                </span>
+                <span>{quickThemeCompactLabel}</span>
               </span>
             </button>
           </div>
@@ -1340,6 +1349,14 @@ export function App() {
 
             {screen === 'about' ? <AboutPanel /> : null}
           </div>
+
+          {showAboutLink ? (
+            <footer className="app-meta">
+              <button type="button" className="app-meta__link" onClick={handleOpenAbout}>
+                About this app
+              </button>
+            </footer>
+          ) : null}
         </div>
 
         {screen !== 'session' ? (

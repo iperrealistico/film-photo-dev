@@ -80,11 +80,9 @@ const cs41PushMultiplierByStops: Record<number, number> = {
   3: 2.5
 };
 
-const cs41ReuseStepByBatchMl: Record<string, number> = {
-  '500': 0.04,
-  '1000': 0.02,
-  '2000': 0.01
-};
+const CS41_REUSE_STEP_PER_UNIT = 0.02;
+const CS41_UNIT_DEFINITION =
+  '1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets.';
 
 function makeId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -101,6 +99,26 @@ function getString(values: RecipeInputMap, key: string) {
 
 function getBoolean(values: RecipeInputMap, key: string) {
   return Boolean(values[key]);
+}
+
+function getCs41ProcessedUnits(values: RecipeInputMap, chemistryState: string) {
+  if (chemistryState !== 'reused') {
+    return 0;
+  }
+
+  const processedUnits = Number(values.processedUnits);
+
+  if (Number.isFinite(processedUnits) && processedUnits > 0) {
+    return processedUnits;
+  }
+
+  const legacyFilmsProcessed = Number(values.filmsProcessed);
+
+  if (Number.isFinite(legacyFilmsProcessed) && legacyFilmsProcessed > 0) {
+    return legacyFilmsProcessed;
+  }
+
+  return 1;
 }
 
 function formatClock(seconds: number) {
@@ -367,9 +385,9 @@ function planCs41(
   const processingMode = getString(values, 'processingMode');
   const pushPullStops = getNumber(values, 'pushPullStops');
   const chemistryState = getString(values, 'chemistryState');
-  const solutionVolume = getString(values, 'solutionVolume');
-  const filmsProcessed = getNumber(values, 'filmsProcessed');
+  const processedUnits = getCs41ProcessedUnits(values, chemistryState);
   const blixTimeMin = getNumber(values, 'blixTimeMin');
+  const extendBlixWithReuse = getBoolean(values, 'extendBlixWithReuse');
   const transitionDelaySec = getNumber(values, 'transitionDelaySec');
   const inversions = getNumber(values, 'inversions');
   const inversionIntervalSec = getNumber(values, 'inversionIntervalSec');
@@ -389,13 +407,19 @@ function planCs41(
     : Math.round(baseTimeSec * pushPullMultiplier);
   const reuseMultiplier =
     chemistryState === 'reused'
-      ? 1 + (cs41ReuseStepByBatchMl[solutionVolume] ?? 0.02) * filmsProcessed
+      ? 1 + CS41_REUSE_STEP_PER_UNIT * processedUnits
       : 1;
+  const blixMultiplier =
+    chemistryState === 'reused' && extendBlixWithReuse ? reuseMultiplier : 1;
   const developerSec = Math.round(pushPullAdjustedSec * reuseMultiplier);
-  const blixSec = Math.round(blixTimeMin * 60);
+  const blixSec = Math.round(blixTimeMin * 60 * blixMultiplier);
   const washSec = 180;
   const finalRinseSec = 45;
   const developerGuidance = buildCs41DeveloperGuidance(temperatureF);
+  const blixDetail =
+    chemistryState === 'reused' && extendBlixWithReuse
+      ? `Optional blix extension is active. Base blix time × ${reuseMultiplier.toFixed(2)} to match the developer reuse increase.`
+      : 'Fixed blix time. Reuse does not change the timer.';
 
   const developerCues =
     agitationMode === 'continuous'
@@ -486,7 +510,7 @@ function planCs41(
       'Blix',
       'blix',
       blixSec,
-      'Fixed blix time. Reuse does not change the timer.',
+      blixDetail,
       blixCues,
     ),
     buildPhase(
@@ -555,7 +579,7 @@ function planCs41(
       `${reuseMultiplier.toFixed(2)}x`,
       'CineStill Cs41 weakened developer guidance',
       chemistryState === 'reused'
-        ? `${solutionVolume} ml batch with ${filmsProcessed} prior roll-equivalents.`
+        ? `1000 ml weakened developer solution with ${processedUnits} prior units. ${CS41_UNIT_DEFINITION}`
         : 'Fresh developer, so no reuse increase was applied.',
       chemistryState === 'reused' ? 'source' : 'manual',
     ),
@@ -575,8 +599,13 @@ function planCs41(
     makeTraceEntry(
       'Blix timing',
       formatMinutes(blixSec),
-      'CineStill Cs41 powder instructions',
-      'Blix time stays fixed even when the chemistry is reused.',
+      chemistryState === 'reused' && extendBlixWithReuse
+        ? 'User-enabled blix fallback'
+        : 'CineStill Cs41 powder instructions',
+      chemistryState === 'reused' && extendBlixWithReuse
+        ? `Manual override: base blix time × ${reuseMultiplier.toFixed(2)} using the same 2% per prior unit increase as the developer.`
+        : 'Blix time stays fixed even when the chemistry is reused.',
+      chemistryState === 'reused' && extendBlixWithReuse ? 'manual' : 'source',
     ),
     makeTraceEntry(
       'Post-blix steps',
@@ -588,9 +617,11 @@ function planCs41(
 
   const warnings = [
     chemistryState === 'reused'
-      ? 'Reuse adjustment is active. Confirm your developer batch history before you start.'
+      ? `Reuse adjustment is active. ${CS41_UNIT_DEFINITION}`
       : 'Using fresh developer.',
-    'Blix time stays fixed. CineStill says blix reuse does not change processing time.'
+    chemistryState === 'reused' && extendBlixWithReuse
+      ? 'Optional blix extension is active. CineStill keeps blix fixed by default, so this extra increase is a manual fallback.'
+      : 'Blix time stays fixed. CineStill says blix reuse does not change processing time.'
   ];
 
   if (isPush && chemistryState === 'reused') {
@@ -631,6 +662,15 @@ function planCs41(
         label: 'Reuse adjustment',
         value: `${reuseMultiplier.toFixed(2)}x`,
         emphasis: chemistryState === 'reused' ? 'strong' : 'normal'
+      },
+      {
+        label: 'Blix adjustment',
+        value:
+          chemistryState === 'reused' && extendBlixWithReuse
+            ? `${blixMultiplier.toFixed(2)}x`
+            : 'Fixed',
+        emphasis:
+          chemistryState === 'reused' && extendBlixWithReuse ? 'strong' : 'normal'
       },
       {
         label: 'Final developer time',
@@ -1088,6 +1128,38 @@ export function createDefaultInputState(recipe: RecipeDefinition) {
   return Object.fromEntries(
     recipe.inputs.map((input) => [input.id, input.defaultValue]),
   ) satisfies RecipeInputMap;
+}
+
+export function normalizeInputState(
+  recipe: RecipeDefinition,
+  values?: RecipeInputMap,
+) {
+  const normalized = {
+    ...createDefaultInputState(recipe),
+    ...(values ?? {})
+  } satisfies RecipeInputMap;
+
+  if (recipe.plannerId === 'cs41') {
+    const rawProcessedUnits = values?.processedUnits;
+    const legacyFilmsProcessed = values?.filmsProcessed;
+    const hasProcessedUnits =
+      typeof rawProcessedUnits === 'number' ||
+      (typeof rawProcessedUnits === 'string' && rawProcessedUnits.length > 0);
+
+    if (
+      !hasProcessedUnits &&
+      (typeof legacyFilmsProcessed === 'number' ||
+        (typeof legacyFilmsProcessed === 'string' && legacyFilmsProcessed.length > 0))
+    ) {
+      normalized.processedUnits = Number(legacyFilmsProcessed);
+    }
+
+    if (typeof values?.extendBlixWithReuse !== 'boolean') {
+      normalized.extendBlixWithReuse = false;
+    }
+  }
+
+  return normalized;
 }
 
 export function createSessionPlan(
