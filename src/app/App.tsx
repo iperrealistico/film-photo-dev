@@ -1344,23 +1344,25 @@ export function App() {
 
         {screen !== 'session' ? (
           <nav className="bottom-nav">
-            {navigationItems.map((item) => {
-              const NavIcon = item.icon;
+            <div className="bottom-nav__inner">
+              {navigationItems.map((item) => {
+                const NavIcon = item.icon;
 
-              return (
-                <button
-                  key={item.screen}
-                  type="button"
-                  className={screen === item.screen ? 'is-active' : ''}
-                  onClick={() => handleNavigate(item.screen)}
-                >
-                  <span className="nav-button__content">
-                    <NavIcon aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={item.screen}
+                    type="button"
+                    className={screen === item.screen ? 'is-active' : ''}
+                    onClick={() => handleNavigate(item.screen)}
+                  >
+                    <span className="nav-button__content">
+                      <NavIcon aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </nav>
         ) : null}
 
