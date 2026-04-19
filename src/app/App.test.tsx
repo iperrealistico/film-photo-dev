@@ -70,6 +70,8 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(screen.getByRole('button', { name: /^Home$/i })).toBeDisabled();
+
     expect(
       screen.getByRole('heading', {
         name: /Film developing, guided step by step/i
@@ -79,6 +81,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /Cs41 powder kit/i }));
 
     expect(screen.getByRole('heading', { name: 'Cs41 powder kit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Back$/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Review plan/i })).toBeInTheDocument();
   });
 

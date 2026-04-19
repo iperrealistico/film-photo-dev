@@ -292,7 +292,6 @@ export function App() {
   const alertProfile = resolveAlertProfile(defaultAlertProfiles, preferences);
   const draftPlan = createSessionPlan(selectedRecipeId, selectedDraft, alertProfile);
   const livePlan = activePlan ?? draftPlan;
-  const logoSrc = `${import.meta.env.BASE_URL}icons/icon-192.png`;
   const runtimeFrame =
     activePlan && activeSession
       ? deriveRuntimeFrame(activePlan, activeSession, nowMs)
@@ -341,6 +340,7 @@ export function App() {
         : screen === 'about'
           ? aboutReturnScreen
           : null;
+  const topbarBackLabel = backTarget ? 'Back' : 'Home';
   const showBackButton = backTarget !== null;
   const showAboutLink = screen !== 'about';
 
@@ -1160,37 +1160,33 @@ export function App() {
     >
       <div className="app-backdrop" />
       <main className="app-frame" ref={appFrameRef}>
-        <button
-          type="button"
-          className="brand-corner-button"
-          aria-label="Film Dev"
-          onClick={handleSecretDebugTap}
-        >
-          <span className="brand-corner-button__badge">
-            <img src={logoSrc} alt="" width="52" height="52" />
-          </span>
-        </button>
         <header className="topbar">
           <div className="topbar__slot topbar__slot--nav">
-            {showBackButton ? (
-              <button
-                type="button"
-                className="topbar-action topbar-action--nav"
-                onClick={handleTopbarBack}
-              >
-                <span className="button-label">
-                  <ChevronLeftIcon aria-hidden="true" />
-                  <span>Back</span>
-                </span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="topbar-action topbar-action--nav"
+              onClick={handleTopbarBack}
+              disabled={!showBackButton}
+            >
+              <span className="button-label">
+                <ChevronLeftIcon aria-hidden="true" />
+                <span>{topbarBackLabel}</span>
+              </span>
+            </button>
           </div>
 
-          <div className="topbar__center">
-            <p className="topbar__eyebrow">{headerEyebrow}</p>
-            <strong className="topbar__title">{headerTitle}</strong>
-            {headerSubtitle ? <span className="topbar__subtitle">{headerSubtitle}</span> : null}
-          </div>
+          <button
+            type="button"
+            className="topbar__center-button"
+            aria-label="Film Dev"
+            onClick={handleSecretDebugTap}
+          >
+            <span className="topbar__center">
+              <p className="topbar__eyebrow">{headerEyebrow}</p>
+              <strong className="topbar__title">{headerTitle}</strong>
+              {headerSubtitle ? <span className="topbar__subtitle">{headerSubtitle}</span> : null}
+            </span>
+          </button>
 
           <div className="topbar__slot topbar__slot--tools">
             <button

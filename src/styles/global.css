@@ -116,11 +116,11 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(5.6rem, 1fr) minmax(0, 30rem) minmax(5.6rem, 1fr);
+  grid-template-columns: minmax(6.4rem, 1fr) minmax(0, 30rem) minmax(6.4rem, 1fr);
   align-items: center;
   gap: 0.9rem;
   margin-bottom: 1.6rem;
-  padding: 0.8rem 4.6rem 0.8rem 0.8rem;
+  padding: 0.8rem;
   border: 1px solid var(--border);
   border-radius: 26px;
   background: rgba(10, 12, 13, 0.78);
@@ -131,45 +131,6 @@ button {
   box-shadow:
     0 16px 44px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.brand-corner-button {
-  position: fixed;
-  top: max(0.9rem, calc(env(safe-area-inset-top) + 0.15rem));
-  right: max(
-    0.95rem,
-    calc(50vw - (var(--app-frame-max) / 2) + 0.55rem),
-    calc(env(safe-area-inset-right) + 0.55rem)
-  );
-  width: 3.35rem;
-  height: 3.35rem;
-  padding: 0;
-  border: 0;
-  border-radius: 1.2rem;
-  background: transparent;
-  color: inherit;
-  display: grid;
-  place-items: center;
-  z-index: 7;
-}
-
-.brand-corner-button__badge {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-  background: linear-gradient(160deg, rgba(243, 200, 135, 0.18), rgba(240, 129, 88, 0.16));
-  box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.brand-corner-button__badge img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  filter: var(--brand-icon-filter);
 }
 
 .topbar__slot {
@@ -185,6 +146,17 @@ button {
 
 .topbar__slot--tools {
   justify-content: flex-end;
+}
+
+.topbar__center-button {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  cursor: default;
 }
 
 .topbar__center,
@@ -750,6 +722,14 @@ button {
   padding-inline: 0.95rem;
 }
 
+.topbar-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+  color: var(--text-muted);
+  border-color: rgba(248, 240, 222, 0.08);
+  box-shadow: none;
+}
+
 .topbar-action--theme {
   min-width: 0;
   padding-inline: 0.8rem;
@@ -815,8 +795,7 @@ button {
 .session-hero,
 .session-banner,
 .plan-banner,
-.brand-corner-button,
-.brand-corner-button__badge img,
+.topbar__center-button,
 .app-meta__link,
 .app-backdrop {
   transition:
@@ -1476,16 +1455,10 @@ button {
 
 @media (max-width: 719px) {
   .topbar {
-    grid-template-columns: 3.15rem minmax(0, 1fr) 3.15rem;
-    gap: 0.55rem;
-    padding: 0.65rem 4rem 0.65rem 0.65rem;
+    grid-template-columns: minmax(4.9rem, 1fr) minmax(0, 1fr) minmax(4.9rem, 1fr);
+    gap: 0.6rem;
+    padding: 0.65rem;
     border-radius: 24px;
-  }
-
-  .brand-corner-button {
-    width: 3rem;
-    height: 3rem;
-    top: max(0.8rem, calc(env(safe-area-inset-top) + 0.1rem));
   }
 
   .topbar-action {
@@ -1512,6 +1485,7 @@ button {
 
   .topbar-action--nav {
     max-width: 100%;
+    padding-inline: 0.72rem;
   }
 
   .topbar-action--theme {
@@ -1528,13 +1502,7 @@ button {
 
 @media (max-width: 520px) {
   .topbar {
-    grid-template-columns: 3rem minmax(0, 1fr) 3rem;
-    padding-right: 3.8rem;
-  }
-
-  .brand-corner-button {
-    width: 2.8rem;
-    height: 2.8rem;
+    grid-template-columns: minmax(4.55rem, 1fr) minmax(0, 1fr) minmax(4.55rem, 1fr);
   }
 }
 
