@@ -40,7 +40,8 @@ describe('preferences', () => {
     expect(loadPreferences()).toMatchObject({
       themeMode: 'standard',
       animationsEnabled: true,
-      buttonSoundsEnabled: true
+      buttonSoundsEnabled: true,
+      phaseConfirmationEnabled: false
     });
   });
 
@@ -57,7 +58,8 @@ describe('preferences', () => {
       themeMode: 'red_safe',
       leftHanded: true,
       animationsEnabled: true,
-      buttonSoundsEnabled: true
+      buttonSoundsEnabled: true,
+      phaseConfirmationEnabled: false
     });
   });
 });

@@ -118,6 +118,47 @@ export function resumeSession(state: ActiveSessionState, nowMs: number) {
   );
 }
 
+export function waitForPhaseConfirmation(
+  state: ActiveSessionState,
+  nowMs: number,
+  phaseLabel: string,
+) {
+  if (state.status !== 'running') {
+    return state;
+  }
+
+  return appendEvent(
+    {
+      ...state,
+      status: 'awaiting_phase_start',
+      pauseStartedAtMs: nowMs,
+      lastPersistedAtMs: nowMs
+    },
+    'phase_wait_started',
+    `${phaseLabel} is lined up. Waiting for manual confirmation to start the timer.`,
+  );
+}
+
+export function confirmPhaseStart(state: ActiveSessionState, nowMs: number, phaseLabel: string) {
+  if (state.status !== 'awaiting_phase_start') {
+    return state;
+  }
+
+  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+
+  return appendEvent(
+    {
+      ...state,
+      status: 'running',
+      pauseStartedAtMs: null,
+      totalPausedMs: state.totalPausedMs + pauseDuration,
+      lastPersistedAtMs: nowMs
+    },
+    'phase_wait_confirmed',
+    `${phaseLabel} started after manual confirmation.`,
+  );
+}
+
 export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
   const nextStatus = state.resumeStatus;
 
@@ -171,7 +212,8 @@ function getEffectiveElapsedMs(state: ActiveSessionState, nowMs: number) {
   }
 
   const activeNowMs =
-    state.status === 'paused' && state.pauseStartedAtMs
+    (state.status === 'paused' || state.status === 'awaiting_phase_start') &&
+    state.pauseStartedAtMs
       ? state.pauseStartedAtMs
       : nowMs;
 

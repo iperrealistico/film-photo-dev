@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveSessionState, SessionPlan } from './types';
 import {
+  confirmPhaseStart,
   confirmRecovery,
   createActiveSession,
   deriveRuntimeFrame,
   hydrateActiveSession,
   pauseSession,
   resumeSession,
-  startSession
+  startSession,
+  waitForPhaseConfirmation
 } from './runtime';
 
 const simplePlan: SessionPlan = {
@@ -87,6 +89,20 @@ describe('runtime', () => {
     expect(resumedState.eventLog.at(-1)?.type).toBe('resumed');
   });
 
+  it('holds at a phase boundary until the next phase is confirmed manually', () => {
+    const runningState = createRunningState();
+    const waitingState = waitForPhaseConfirmation(runningState, 9_000, 'Stop');
+    const confirmedState = confirmPhaseStart(waitingState, 13_500, 'Stop');
+
+    expect(waitingState.status).toBe('awaiting_phase_start');
+    expect(waitingState.pauseStartedAtMs).toBe(9_000);
+    expect(waitingState.eventLog.at(-1)?.type).toBe('phase_wait_started');
+    expect(confirmedState.status).toBe('running');
+    expect(confirmedState.totalPausedMs).toBe(4_500);
+    expect(confirmedState.pauseStartedAtMs).toBeNull();
+    expect(confirmedState.eventLog.at(-1)?.type).toBe('phase_wait_confirmed');
+  });
+
   it('confirms recovery back into the stored resume status', () => {
     const recoveringState: ActiveSessionState = {
       ...createRunningState(),
@@ -123,6 +139,18 @@ describe('runtime', () => {
     const pausedState = pauseSession(runningState, 9_000);
 
     const frame = deriveRuntimeFrame(simplePlan, pausedState, 30_000);
+
+    expect(frame.elapsedInPhaseSec).toBe(8);
+    expect(frame.remainingInPhaseSec).toBe(22);
+    expect(frame.nextCue?.id).toBe('developer-prepare');
+    expect(frame.nextCueInSec).toBe(2);
+  });
+
+  it('freezes elapsed time while waiting for manual phase confirmation', () => {
+    const runningState = createRunningState();
+    const waitingState = waitForPhaseConfirmation(runningState, 9_000, 'Stop');
+
+    const frame = deriveRuntimeFrame(simplePlan, waitingState, 30_000);
 
     expect(frame.elapsedInPhaseSec).toBe(8);
     expect(frame.remainingInPhaseSec).toBe(22);

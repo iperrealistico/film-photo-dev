@@ -26,6 +26,7 @@ interface SessionConsoleProps {
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
+  onConfirmPhaseStart: () => void;
   onConfirmRecovery: () => void;
   onAbort: () => void;
   onReset: () => void;
@@ -41,6 +42,7 @@ export function SessionConsole({
   onStart,
   onPause,
   onResume,
+  onConfirmPhaseStart,
   onConfirmRecovery,
   onAbort,
   onReset,
@@ -50,6 +52,8 @@ export function SessionConsole({
   const upcomingPhases = frame.currentPhase
     ? plan.phaseList.slice(frame.phaseIndex + 1, frame.phaseIndex + 4)
     : plan.phaseList.slice(-3);
+  const isAwaitingPhaseStart = state.status === 'awaiting_phase_start';
+  const nextPhaseLabel = frame.currentPhase?.label ?? 'Next step';
 
   const isCompletionState =
     state.status === 'completed' || state.status === 'aborted' || frame.completed;
@@ -57,18 +61,18 @@ export function SessionConsole({
   return (
     <section className="stack session-layout">
       <div className="session-banner">
-        <div>
+        <div className="session-banner__summary">
           <p className="eyebrow">
             <span className="title-with-icon title-with-icon--compact">
               <ClockIcon aria-hidden="true" />
               <span>Darkroom mode</span>
             </span>
           </p>
-          <strong>{recipe.developerLabel}</strong>
+          <strong className="session-banner__title">{recipe.developerLabel}</strong>
         </div>
         <div className="session-banner__meta">
-          <span>{plan.sourceSummary}</span>
-          <strong>{formatDuration(plan.totalDurationSec)}</strong>
+          <span className="session-banner__source">{plan.sourceSummary}</span>
+          <strong className="session-banner__duration">{formatDuration(plan.totalDurationSec)}</strong>
         </div>
       </div>
 
@@ -106,21 +110,29 @@ export function SessionConsole({
       <section className="session-hero">
         <div className="session-hero__phase">
           <span className={`tone-chip tone-chip--${recipe.accentTone}`}>
-            {isCompletionState ? 'Completed' : frame.currentPhase?.label ?? 'Ready'}
+            {isCompletionState
+              ? 'Completed'
+              : isAwaitingPhaseStart
+                ? 'Ready check'
+                : frame.currentPhase?.label ?? 'Ready'}
           </span>
           <h1>
             {isCompletionState
               ? state.status === 'aborted'
                 ? 'Session stopped'
                 : 'Session complete'
-              : formatDuration(frame.remainingInPhaseSec)}
+              : isAwaitingPhaseStart
+                ? `Ready for ${nextPhaseLabel}?`
+                : formatDuration(frame.remainingInPhaseSec)}
           </h1>
           <p>
             {isCompletionState
               ? state.status === 'aborted'
                 ? 'This session ended early. Reset before you begin another run.'
                 : 'Review the summary and save the chemistry log if you want.'
-              : frame.currentPhase?.detail}
+              : isAwaitingPhaseStart
+                ? 'The previous phase has finished. Start the next timer only when the tank and chemistry are ready.'
+                : frame.currentPhase?.detail}
           </p>
         </div>
         <div className="session-hero__cue">
@@ -128,14 +140,17 @@ export function SessionConsole({
           <strong>
             {isCompletionState
               ? 'None'
+              : isAwaitingPhaseStart
+                ? `${nextPhaseLabel} is waiting to begin`
               : frame.nextCue
                 ? `${frame.nextCue.label} in ${frame.nextCueInSec ?? 0}s`
                 : 'No more cues in this step'}
           </strong>
           {!isCompletionState ? (
             <p>
-              Step {frame.phaseIndex + 1} of {plan.phaseList.length} · elapsed{' '}
-              {formatDuration(frame.totalElapsedSec)}
+              {isAwaitingPhaseStart
+                ? `Step ${frame.phaseIndex + 1} of ${plan.phaseList.length} · timer paused until you confirm`
+                : `Step ${frame.phaseIndex + 1} of ${plan.phaseList.length} · elapsed ${formatDuration(frame.totalElapsedSec)}`}
             </p>
           ) : (
             <p>Planned {formatDateTime(plan.generatedAt)}</p>
@@ -143,37 +158,68 @@ export function SessionConsole({
         </div>
       </section>
 
+      {isAwaitingPhaseStart ? (
+        <section className="panel stack runtime-gate-panel">
+          <p className="eyebrow">Next step paused</p>
+          <h2 className="runtime-gate-panel__title">{nextPhaseLabel} is ready when you are.</h2>
+          <p>
+            Tap the large button only when you want the next countdown to begin for
+            real.
+          </p>
+          <div className="action-row">
+            <button
+              type="button"
+              className="primary-button runtime-button runtime-button--gate"
+              onClick={onConfirmPhaseStart}
+            >
+              <span className="button-label">
+                <PlayIcon aria-hidden="true" />
+                <span>Begin next step</span>
+              </span>
+            </button>
+            <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
+              <span className="button-label">
+                <StopIcon aria-hidden="true" />
+                <span>End session</span>
+              </span>
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {!isCompletionState ? (
-        <div className="runtime-controls">
-          {state.status === 'ready' ? (
-            <button type="button" className="primary-button runtime-button" onClick={onStart}>
+        !isAwaitingPhaseStart ? (
+          <div className="runtime-controls">
+            {state.status === 'ready' ? (
+              <button type="button" className="primary-button runtime-button" onClick={onStart}>
+                <span className="button-label">
+                  <PlayIcon aria-hidden="true" />
+                  <span>Start timer</span>
+                </span>
+              </button>
+            ) : state.status === 'paused' ? (
+              <button type="button" className="primary-button runtime-button" onClick={onResume}>
+                <span className="button-label">
+                  <PlayIcon aria-hidden="true" />
+                  <span>Resume timer</span>
+                </span>
+              </button>
+            ) : (
+              <button type="button" className="primary-button runtime-button" onClick={onPause}>
+                <span className="button-label">
+                  <PauseIcon aria-hidden="true" />
+                  <span>Pause timer</span>
+                </span>
+              </button>
+            )}
+            <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
               <span className="button-label">
-                <PlayIcon aria-hidden="true" />
-                <span>Start timer</span>
+                <StopIcon aria-hidden="true" />
+                <span>End session</span>
               </span>
             </button>
-          ) : state.status === 'paused' ? (
-            <button type="button" className="primary-button runtime-button" onClick={onResume}>
-              <span className="button-label">
-                <PlayIcon aria-hidden="true" />
-                <span>Resume timer</span>
-              </span>
-            </button>
-          ) : (
-            <button type="button" className="primary-button runtime-button" onClick={onPause}>
-              <span className="button-label">
-                <PauseIcon aria-hidden="true" />
-                <span>Pause timer</span>
-              </span>
-            </button>
-          )}
-          <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
-            <span className="button-label">
-              <StopIcon aria-hidden="true" />
-              <span>End session</span>
-            </span>
-          </button>
-        </div>
+          </div>
+        ) : null
       ) : (
         <div className="action-row">
           <button type="button" className="secondary-button" onClick={onReset}>

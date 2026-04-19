@@ -28,6 +28,7 @@ export type SessionStatus =
   | 'ready'
   | 'running'
   | 'paused'
+  | 'awaiting_phase_start'
   | 'recovering'
   | 'completed'
   | 'aborted';
@@ -221,6 +222,8 @@ export interface SessionEvent {
     | 'started'
     | 'paused'
     | 'resumed'
+    | 'phase_wait_started'
+    | 'phase_wait_confirmed'
     | 'recovery_needed'
     | 'recovery_confirmed'
     | 'completed'

@@ -15,6 +15,7 @@ import {
   ClipboardIcon,
   DownloadIcon,
   MoonIcon,
+  PauseIcon,
   RefreshIcon,
   SpeakerIcon,
   SparkIcon,
@@ -123,6 +124,7 @@ interface SettingsPanelProps {
   onToggleHandedness: () => void;
   onToggleAnimations: () => void;
   onToggleButtonSounds: () => void;
+  onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
   onExportBatches: () => void;
@@ -145,6 +147,7 @@ export function SettingsPanel({
   onToggleHandedness,
   onToggleAnimations,
   onToggleButtonSounds,
+  onTogglePhaseConfirmation,
   onToggleDiagnostics,
   onExportPresets,
   onExportBatches,
@@ -269,7 +272,7 @@ export function SettingsPanel({
               <span>Interaction</span>
             </span>
           </h3>
-          <p>Choose how much motion and button feedback the app uses in the darkroom.</p>
+          <p>Choose how much motion, feedback, and step-by-step control the app uses in the darkroom.</p>
         </div>
         <button type="button" className="toggle-button" onClick={onToggleAnimations}>
           <span className="button-label">
@@ -284,6 +287,13 @@ export function SettingsPanel({
             <span>Button sounds</span>
           </span>
           <strong>{preferences.buttonSoundsEnabled ? 'On' : 'Off'}</strong>
+        </button>
+        <button type="button" className="toggle-button" onClick={onTogglePhaseConfirmation}>
+          <span className="button-label">
+            <PauseIcon aria-hidden="true" />
+            <span>Pause between steps</span>
+          </span>
+          <strong>{preferences.phaseConfirmationEnabled ? 'On' : 'Off'}</strong>
         </button>
         <button type="button" className="toggle-button" onClick={onToggleHandedness}>
           <span className="button-label">

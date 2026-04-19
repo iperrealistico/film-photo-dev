@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { defaultAlertProfiles, getRecipeById } from '../data/recipes';
 import { createDefaultInputState, createSessionPlan } from '../domain/planner';
@@ -32,6 +32,11 @@ function resetClientStorage() {
 }
 
 describe('App', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     const local = createMemoryStorage();
     const session = createMemoryStorage();
@@ -178,9 +183,11 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /^Settings$/i }));
     await user.click(screen.getByRole('button', { name: /Screen animations/i }));
     await user.click(screen.getByRole('button', { name: /Button sounds/i }));
+    await user.click(screen.getByRole('button', { name: /Pause between steps/i }));
 
     expect(screen.getByRole('button', { name: /Screen animations/i })).toHaveTextContent('Off');
     expect(screen.getByRole('button', { name: /Button sounds/i })).toHaveTextContent('Off');
+    expect(screen.getByRole('button', { name: /Pause between steps/i })).toHaveTextContent('On');
 
     unmount();
     render(<App />);
@@ -190,7 +197,43 @@ describe('App', () => {
       'Off',
     );
     expect(screen.getByRole('button', { name: /Button sounds/i })).toHaveTextContent('Off');
+    expect(screen.getByRole('button', { name: /Pause between steps/i })).toHaveTextContent('On');
   });
+
+  it('waits for manual confirmation before starting the next phase when pause-between-steps is enabled', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /^Settings$/i }));
+    await user.click(screen.getByRole('button', { name: /Pause between steps/i }));
+    await user.click(screen.getByRole('button', { name: /^Recipes$/i }));
+
+    await user.click(screen.getByRole('button', { name: /Cs41 powder kit/i }));
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Start session/i }));
+    });
+    expect(screen.getByRole('button', { name: /^Pause timer$/i })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400_000);
+    });
+
+    expect(screen.getByRole('button', { name: /Begin next step/i })).toBeInTheDocument();
+    expect(screen.getByText(/timer paused until you confirm/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Pause timer$/i })).not.toBeInTheDocument();
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Begin next step/i }));
+    });
+
+    expect(screen.getByRole('button', { name: /^Pause timer$/i })).toBeInTheDocument();
+  }, 10000);
 
   it('opens the Mix tab and recalculates ratio math from pasted notation', async () => {
     const user = userEvent.setup();

@@ -18,13 +18,15 @@ import {
 import {
   abortSession,
   completeSession,
+  confirmPhaseStart,
   confirmRecovery,
   createActiveSession,
   deriveRuntimeFrame,
   hydrateActiveSession,
   pauseSession,
   resumeSession,
-  startSession as beginSessionState
+  startSession as beginSessionState,
+  waitForPhaseConfirmation
 } from '../domain/runtime';
 import type {
   ActiveSessionState,
@@ -279,6 +281,7 @@ export function App() {
   const lastCueRef = useRef('');
   const lastPhaseRef = useRef('');
   const lastSessionEventRef = useRef('');
+  const lastSessionIdRef = useRef<string | null>(null);
   const screenRef = useRef<Screen>('recipes');
   const renderedScreenRef = useRef<Screen>('recipes');
   const debugUnlockRef = useRef({
@@ -572,6 +575,19 @@ export function App() {
   }, [activeSession]);
 
   useEffect(() => {
+    const sessionId = activeSession?.sessionId ?? null;
+
+    if (lastSessionIdRef.current === sessionId) {
+      return;
+    }
+
+    lastSessionIdRef.current = sessionId;
+    lastCueRef.current = '';
+    lastPhaseRef.current = '';
+    lastSessionEventRef.current = '';
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
     if (!runtimeFrame || !activeSession || activeSession.status !== 'running') {
       return;
     }
@@ -613,6 +629,71 @@ export function App() {
   }, [activeSession, selectedRecipeId]);
 
   useEffect(() => {
+    if (!runtimeFrame || !activeSession) {
+      return;
+    }
+
+    const phaseSignature = `${activeSession.sessionId}:${runtimeFrame.phaseIndex}`;
+    const previousSignature = lastPhaseRef.current;
+
+    if (phaseSignature === previousSignature) {
+      return;
+    }
+
+    lastPhaseRef.current = phaseSignature;
+
+    if (activeSession.status !== 'running') {
+      return;
+    }
+
+    const isFirstObservedPhase =
+      !previousSignature || !previousSignature.startsWith(`${activeSession.sessionId}:`);
+
+    if (isFirstObservedPhase) {
+      return;
+    }
+
+    const nextPhaseLabel = runtimeFrame.currentPhase?.label ?? 'Next step';
+
+    logDebugEvent({
+      category: 'runtime',
+      event: 'phase_changed',
+      detail: {
+        phaseIndex: runtimeFrame.phaseIndex,
+        phaseLabel: runtimeFrame.currentPhase?.label
+      },
+      recipeId: selectedRecipeId,
+      sessionId: activeSession.sessionId
+    });
+
+    if (preferences.phaseConfirmationEnabled) {
+      logUiEvent('phase_wait_requested', {
+        phaseIndex: runtimeFrame.phaseIndex,
+        phaseLabel: nextPhaseLabel
+      });
+      setActiveSession((current) =>
+        current && current.status === 'running'
+          ? waitForPhaseConfirmation(current, Date.now(), nextPhaseLabel)
+          : current,
+      );
+      return;
+    }
+
+    if (alertProfile.visualEnabled) {
+      document.body.dataset.flash = 'phase';
+      window.setTimeout(() => {
+        delete document.body.dataset.flash;
+      }, 320);
+    }
+  }, [
+    alertProfile.visualEnabled,
+    activeSession,
+    preferences.phaseConfirmationEnabled,
+    runtimeFrame,
+    selectedRecipeId
+  ]);
+
+  useEffect(() => {
     if (!runtimeFrame || !activeSession || activeSession.status !== 'running') {
       return;
     }
@@ -633,27 +714,6 @@ export function App() {
 
     if (exactCue && alertProfile.audioEnabled) {
       playTone('cue');
-    }
-
-    if (lastPhaseRef.current !== String(runtimeFrame.phaseIndex)) {
-      lastPhaseRef.current = String(runtimeFrame.phaseIndex);
-      logDebugEvent({
-        category: 'runtime',
-        event: 'phase_changed',
-        detail: {
-          phaseIndex: runtimeFrame.phaseIndex,
-          phaseLabel: runtimeFrame.currentPhase?.label
-        },
-        recipeId: selectedRecipeId,
-        sessionId: activeSession.sessionId
-      });
-
-      if (alertProfile.visualEnabled) {
-        document.body.dataset.flash = 'phase';
-        window.setTimeout(() => {
-          delete document.body.dataset.flash;
-        }, 320);
-      }
     }
 
     if (exactCue) {
@@ -686,6 +746,7 @@ export function App() {
       `mix-mode:${mixWorkspace.activeMode}`,
       `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
+      `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
       `batches:${batches.length}`,
       `debug-unlocked:${preferences.debugUnlocked}`
@@ -1018,6 +1079,16 @@ export function App() {
     }));
   }
 
+  function handleTogglePhaseConfirmation() {
+    logUiEvent('phase_confirmation_toggled', {
+      nextValue: !preferences.phaseConfirmationEnabled
+    });
+    setPreferences((current) => ({
+      ...current,
+      phaseConfirmationEnabled: !current.phaseConfirmationEnabled
+    }));
+  }
+
   function handleToggleDiagnostics() {
     logUiEvent('diagnostics_visibility_toggled', {
       nextValue: !preferences.diagnosticsOpen
@@ -1287,6 +1358,16 @@ export function App() {
                     current ? resumeSession(current, Date.now()) : current,
                   );
                 }}
+                onConfirmPhaseStart={() => {
+                  const phaseLabel = runtimeFrame.currentPhase?.label ?? 'Next step';
+                  logUiEvent('phase_wait_confirmed', {
+                    phaseIndex: runtimeFrame.phaseIndex,
+                    phaseLabel
+                  });
+                  setActiveSession((current) =>
+                    current ? confirmPhaseStart(current, Date.now(), phaseLabel) : current,
+                  );
+                }}
                 onConfirmRecovery={() => {
                   logUiEvent('session_recovery_confirmed');
                   setActiveSession((current) =>
@@ -1331,6 +1412,7 @@ export function App() {
                 onToggleHandedness={handleToggleHandedness}
                 onToggleAnimations={handleToggleAnimations}
                 onToggleButtonSounds={handleToggleButtonSounds}
+                onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
                 onExportPresets={handleExportPresets}
                 onExportBatches={handleExportBatches}
