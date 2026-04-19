@@ -13,6 +13,8 @@ export interface PreferenceState {
   alertProfileId: string;
   themeMode: ThemeMode;
   leftHanded: boolean;
+  animationsEnabled: boolean;
+  buttonSoundsEnabled: boolean;
   diagnosticsOpen: boolean;
   debugUnlocked: boolean;
 }
@@ -22,14 +24,18 @@ interface LegacyPreferenceState {
   redSafeEnabled?: boolean;
   themeMode?: ThemeMode;
   leftHanded?: boolean;
+  animationsEnabled?: boolean;
+  buttonSoundsEnabled?: boolean;
   diagnosticsOpen?: boolean;
   debugUnlocked?: boolean;
 }
 
 const defaultPreferences: PreferenceState = {
   alertProfileId: 'balanced',
-  themeMode: 'ultrared',
+  themeMode: 'standard',
   leftHanded: false,
+  animationsEnabled: true,
+  buttonSoundsEnabled: true,
   diagnosticsOpen: false,
   debugUnlocked: false
 };
@@ -75,6 +81,8 @@ export function loadPreferences() {
       detail: {
         themeMode: preferences.themeMode,
         leftHanded: preferences.leftHanded,
+        animationsEnabled: preferences.animationsEnabled,
+        buttonSoundsEnabled: preferences.buttonSoundsEnabled,
         diagnosticsOpen: preferences.diagnosticsOpen,
         debugUnlocked: preferences.debugUnlocked
       }
@@ -103,6 +111,8 @@ export function savePreferences(preferences: PreferenceState) {
     detail: {
       themeMode: preferences.themeMode,
       leftHanded: preferences.leftHanded,
+      animationsEnabled: preferences.animationsEnabled,
+      buttonSoundsEnabled: preferences.buttonSoundsEnabled,
       diagnosticsOpen: preferences.diagnosticsOpen,
       debugUnlocked: preferences.debugUnlocked
     }

@@ -4,6 +4,7 @@ import {
   BookmarkIcon,
   CalculatorIcon,
   CheckCircleIcon,
+  ChevronLeftIcon,
   ClipboardIcon,
   FilmIcon,
   FlaskIcon,
@@ -40,6 +41,7 @@ function formatHc110MaxLoad(format: string, units: number) {
 interface PlanReviewProps {
   recipe: RecipeDefinition;
   plan: SessionPlan;
+  onBackToSetup: () => void;
   onSavePreset: () => void;
   onStartSession: () => void;
 }
@@ -47,6 +49,7 @@ interface PlanReviewProps {
 export function PlanReview({
   recipe,
   plan,
+  onBackToSetup,
   onSavePreset,
   onStartSession
 }: PlanReviewProps) {
@@ -323,6 +326,12 @@ export function PlanReview({
       </section>
 
       <div className="action-row">
+        <button type="button" className="secondary-button" onClick={onBackToSetup}>
+          <span className="button-label">
+            <ChevronLeftIcon aria-hidden="true" />
+            <span>Back to setup</span>
+          </span>
+        </button>
         <button type="button" className="secondary-button" onClick={onSavePreset}>
           <span className="button-label">
             <BookmarkIcon aria-hidden="true" />

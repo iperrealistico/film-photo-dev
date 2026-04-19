@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { defaultAlertProfiles, getRecipeById, recipes } from '../data/recipes';
 import {
   clearDebugLogs,
@@ -49,7 +49,7 @@ import {
   ClipboardIcon,
   FlaskIcon,
   InfoIcon,
-  MoonIcon,
+  ShieldIcon,
   SlidersIcon,
   SunIcon
 } from '../ui/icons';
@@ -86,6 +86,7 @@ type Screen =
 
 const appVersion = '0.1.0';
 const recipeVersion = '2026-04-18';
+type ScreenTransitionDirection = 'forward' | 'back' | 'lateral';
 
 const initialDrafts = Object.fromEntries(
   recipes.map((recipe) => [recipe.id, createDefaultInputState(recipe)]),
@@ -154,25 +155,86 @@ function downloadJsonFile(filename: string, payload: unknown) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-function playCueTone() {
+let sharedAudioContext: AudioContext | null = null;
+
+function getSharedAudioContext() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
   if (!('AudioContext' in window || 'webkitAudioContext' in window)) {
-    return;
+    return null;
+  }
+
+  if (sharedAudioContext && sharedAudioContext.state !== 'closed') {
+    return sharedAudioContext;
   }
 
   const Context = window.AudioContext ?? (window as typeof window & {
     webkitAudioContext: typeof AudioContext;
   }).webkitAudioContext;
-  const audioContext = new Context();
+  sharedAudioContext = new Context();
+  return sharedAudioContext;
+}
+
+function playTone(kind: 'button' | 'cue') {
+  const audioContext = getSharedAudioContext();
+
+  if (!audioContext) {
+    return;
+  }
+
+  if (audioContext.state === 'suspended') {
+    void audioContext.resume().catch(() => undefined);
+  }
+
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
+  const startAt = audioContext.currentTime;
 
-  oscillator.type = 'triangle';
-  oscillator.frequency.value = 880;
-  gainNode.gain.value = 0.02;
+  if (kind === 'button') {
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(1046.5, startAt);
+    oscillator.frequency.exponentialRampToValueAtTime(880, startAt + 0.05);
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(0.012, startAt + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.085);
+  } else {
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(880, startAt);
+    oscillator.frequency.exponentialRampToValueAtTime(740, startAt + 0.12);
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(0.02, startAt + 0.015);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13);
+  }
+
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.12);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + (kind === 'button' ? 0.09 : 0.14));
+}
+
+function resetViewPosition(frame: HTMLElement | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    if (typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  } catch {
+    // jsdom and some embedded browsers may not implement scrollTo fully.
+  }
+
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+
+  try {
+    frame?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
+  } catch {
+    frame?.scrollTo?.(0, 0);
+  }
 }
 
 function getInitialPreferences() {
@@ -209,14 +271,18 @@ export function App() {
   const [debugStats, setDebugStats] = useState<DebugLogStats | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [toast, setToast] = useState('');
+  const [screenTransitionDirection, setScreenTransitionDirection] =
+    useState<ScreenTransitionDirection>('lateral');
   const lastCueRef = useRef('');
   const lastPhaseRef = useRef('');
   const lastSessionEventRef = useRef('');
   const screenRef = useRef<Screen>('recipes');
+  const renderedScreenRef = useRef<Screen>('recipes');
   const debugUnlockRef = useRef({
     count: 0,
     lastTapAtMs: 0
   });
+  const appFrameRef = useRef<HTMLElement | null>(null);
 
   const selectedRecipe = getRecipeById(selectedRecipeId);
   const selectedDraft = drafts[selectedRecipeId] ?? createDefaultInputState(selectedRecipe);
@@ -229,7 +295,9 @@ export function App() {
       ? deriveRuntimeFrame(activePlan, activeSession, nowMs)
       : null;
   const quickThemeLabel =
-    preferences.themeMode === 'standard' ? 'Switch to Ultrared' : 'Switch to White light';
+    preferences.themeMode === 'standard' ? 'Switch to Red safe' : 'Switch to White light';
+  const quickThemeCompactLabel =
+    preferences.themeMode === 'standard' ? 'Red safe' : 'White light';
   const headerSubtitle =
     screen === 'recipes'
       ? 'Offline film developing guide'
@@ -240,7 +308,7 @@ export function App() {
           : screen === 'chemistry'
             ? 'Batches, history, and reuse notes'
             : screen === 'settings'
-              ? 'Darkroom modes, exports, and diagnostics'
+              ? 'Darkroom modes, interaction, and diagnostics'
               : screen === 'about'
                 ? 'Who made this and why it exists'
                 : selectedRecipe.name;
@@ -414,6 +482,15 @@ export function App() {
     return undefined;
   }, [toast]);
 
+  useLayoutEffect(() => {
+    if (renderedScreenRef.current === screen) {
+      return;
+    }
+
+    renderedScreenRef.current = screen;
+    resetViewPosition(appFrameRef.current);
+  }, [screen]);
+
   useEffect(() => {
     if (screenRef.current !== screen) {
       screenRef.current = screen;
@@ -534,7 +611,7 @@ export function App() {
     }
 
     if (exactCue && alertProfile.audioEnabled) {
-      playCueTone();
+      playTone('cue');
     }
 
     if (lastPhaseRef.current !== String(runtimeFrame.phaseIndex)) {
@@ -613,8 +690,24 @@ export function App() {
   function handleSelectRecipe(recipeId: string) {
     logUiEvent('recipe_selected', { recipeId });
     startTransition(() => {
+      setScreenTransitionDirection('forward');
       setSelectedRecipeId(recipeId);
       setScreen('setup');
+    });
+  }
+
+  function transitionToScreen(
+    nextScreen: Screen,
+    direction: ScreenTransitionDirection = 'lateral',
+  ) {
+    if (nextScreen === screen) {
+      resetViewPosition(appFrameRef.current);
+      return;
+    }
+
+    startTransition(() => {
+      setScreenTransitionDirection(direction);
+      setScreen(nextScreen);
     });
   }
 
@@ -662,6 +755,7 @@ export function App() {
       recipeId: preset.recipeId
     });
     startTransition(() => {
+      setScreenTransitionDirection('forward');
       setSelectedRecipeId(preset.recipeId);
       setDrafts((current) => ({
         ...current,
@@ -692,7 +786,7 @@ export function App() {
     });
     setActivePlan(draftPlan);
     setActiveSession(session);
-    setScreen('session');
+    transitionToScreen('session', 'forward');
   }
 
   async function handleLogBatch() {
@@ -796,13 +890,13 @@ export function App() {
     logUiEvent('session_reset_to_recipes');
     setActivePlan(null);
     setActiveSession(null);
-    setScreen('recipes');
+    transitionToScreen('recipes', 'back');
   }
 
   function handleOpenAbout() {
     logUiEvent('about_opened', { fromScreen: screen });
     setAboutReturnScreen(screen);
-    setScreen('about');
+    transitionToScreen('about', 'forward');
   }
 
   function handleTopbarBack() {
@@ -814,7 +908,7 @@ export function App() {
       fromScreen: screen,
       nextScreen: backTarget
     });
-    setScreen(backTarget);
+    transitionToScreen(backTarget, 'back');
   }
 
   function handleSecretDebugTap() {
@@ -847,7 +941,7 @@ export function App() {
       });
     }
 
-    setScreen(nextScreen);
+    transitionToScreen(nextScreen, nextScreen === 'plan' ? 'forward' : 'lateral');
   }
 
   function handleSetThemeMode(mode: ThemeMode) {
@@ -883,6 +977,26 @@ export function App() {
     }));
   }
 
+  function handleToggleAnimations() {
+    logUiEvent('animations_toggled', {
+      nextValue: !preferences.animationsEnabled
+    });
+    setPreferences((current) => ({
+      ...current,
+      animationsEnabled: !current.animationsEnabled
+    }));
+  }
+
+  function handleToggleButtonSounds() {
+    logUiEvent('button_sounds_toggled', {
+      nextValue: !preferences.buttonSoundsEnabled
+    });
+    setPreferences((current) => ({
+      ...current,
+      buttonSoundsEnabled: !current.buttonSoundsEnabled
+    }));
+  }
+
   function handleToggleDiagnostics() {
     logUiEvent('diagnostics_visibility_toggled', {
       nextValue: !preferences.diagnosticsOpen
@@ -892,6 +1006,33 @@ export function App() {
       diagnosticsOpen: !current.diagnosticsOpen
     }));
   }
+
+  useEffect(() => {
+    if (!preferences.buttonSoundsEnabled) {
+      return undefined;
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const button = target.closest('button');
+
+      if (!button || (button as HTMLButtonElement).disabled) {
+        return;
+      }
+
+      playTone('button');
+    }
+
+    document.addEventListener('click', handleDocumentClick, true);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick, true);
+    };
+  }, [preferences.buttonSoundsEnabled]);
 
   function handleExportPresets() {
     try {
@@ -984,7 +1125,7 @@ export function App() {
   const lastBatchForSelectedRecipe = batches.find(
     (batch) => batch.chemistryLabel === selectedRecipe.developerLabel,
   );
-  const QuickThemeIcon = preferences.themeMode === 'standard' ? MoonIcon : SunIcon;
+  const QuickThemeIcon = preferences.themeMode === 'standard' ? ShieldIcon : SunIcon;
 
   return (
     <div
@@ -992,11 +1133,12 @@ export function App() {
         'app-shell',
         preferences.themeMode === 'red_safe' ? 'is-red-safe' : '',
         preferences.themeMode === 'ultrared' ? 'is-ultrared' : '',
+        preferences.animationsEnabled ? 'is-motion-rich' : 'is-motion-reduced',
         preferences.leftHanded ? 'is-left-handed' : ''
       ].join(' ')}
     >
       <div className="app-backdrop" />
-      <main className="app-frame">
+      <main className="app-frame" ref={appFrameRef}>
         <header className="topbar">
           <div className="topbar__leading">
             {showBackButton ? (
@@ -1037,140 +1179,167 @@ export function App() {
                 </span>
               </button>
             ) : null}
-            <button type="button" className="topbar-action" onClick={handleQuickThemeToggle}>
+            <button
+              type="button"
+              className="topbar-action topbar-action--theme"
+              aria-label={quickThemeLabel}
+              onClick={handleQuickThemeToggle}
+            >
               <span className="button-label">
                 <QuickThemeIcon aria-hidden="true" />
-                <span>{quickThemeLabel}</span>
+                <span className="topbar-action__label-full" aria-hidden="true">
+                  {quickThemeLabel}
+                </span>
+                <span className="topbar-action__label-compact" aria-hidden="true">
+                  {quickThemeCompactLabel}
+                </span>
               </span>
             </button>
           </div>
         </header>
 
         <div className="content-shell">
-          {screen === 'recipes' ? (
-            <RecipeBrowser
-              recipes={recipes}
-              selectedRecipeId={selectedRecipeId}
-              onSelect={handleSelectRecipe}
-            />
-          ) : null}
+          <div
+            key={`${screen}-${screenTransitionDirection}`}
+            className={[
+              'screen-stage',
+              `screen-stage--${screenTransitionDirection}`,
+              preferences.animationsEnabled ? 'is-animated' : 'is-static'
+            ].join(' ')}
+          >
+            {screen === 'recipes' ? (
+              <RecipeBrowser
+                recipes={recipes}
+                selectedRecipeId={selectedRecipeId}
+                onSelect={handleSelectRecipe}
+              />
+            ) : null}
 
-          {screen === 'setup' ? (
-            <section className="stack">
-              <SetupForm recipe={selectedRecipe} values={selectedDraft} onChange={updateDraft} />
-              <div className="action-row">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleNavigate('recipes')}
-                >
-                  <span className="button-label">
-                    <BookIcon aria-hidden="true" />
-                    <span>Back to recipes</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={() => handleNavigate('plan')}
-                >
-                  <span className="button-label">
-                    <ClipboardIcon aria-hidden="true" />
-                    <span>Review plan</span>
-                  </span>
-                </button>
-              </div>
-            </section>
-          ) : null}
+            {screen === 'setup' ? (
+              <section className="stack">
+                <SetupForm
+                  recipe={selectedRecipe}
+                  plan={draftPlan}
+                  values={selectedDraft}
+                  onChange={updateDraft}
+                />
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => transitionToScreen('recipes', 'back')}
+                  >
+                    <span className="button-label">
+                      <BookIcon aria-hidden="true" />
+                      <span>Back to recipes</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => handleNavigate('plan')}
+                  >
+                    <span className="button-label">
+                      <ClipboardIcon aria-hidden="true" />
+                      <span>Review plan</span>
+                    </span>
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
-          {screen === 'plan' ? (
-            <PlanReview
-              recipe={selectedRecipe}
-              plan={draftPlan}
-              onSavePreset={handleSavePreset}
-              onStartSession={handleStartSession}
-            />
-          ) : null}
+            {screen === 'plan' ? (
+              <PlanReview
+                recipe={selectedRecipe}
+                plan={draftPlan}
+                onBackToSetup={() => transitionToScreen('setup', 'back')}
+                onSavePreset={handleSavePreset}
+                onStartSession={handleStartSession}
+              />
+            ) : null}
 
-          {screen === 'session' && activePlan && activeSession && runtimeFrame ? (
-            <SessionConsole
-              recipe={selectedRecipe}
-              plan={activePlan}
-              state={activeSession}
-              frame={runtimeFrame}
-              onStart={() => {
-                logUiEvent('session_started_from_console');
-                setActiveSession((current) =>
-                  current ? beginSessionState(current, Date.now()) : current,
-                );
-              }}
-              onPause={() => {
-                logUiEvent('session_paused_from_console');
-                setActiveSession((current) =>
-                  current ? pauseSession(current, Date.now()) : current,
-                );
-              }}
-              onResume={() => {
-                logUiEvent('session_resumed_from_console');
-                setActiveSession((current) =>
-                  current ? resumeSession(current, Date.now()) : current,
-                );
-              }}
-              onConfirmRecovery={() => {
-                logUiEvent('session_recovery_confirmed');
-                setActiveSession((current) =>
-                  current ? confirmRecovery(current, Date.now()) : current,
-                );
-              }}
-              onAbort={() => {
-                logUiEvent('session_aborted');
-                setActiveSession((current) =>
-                  current ? abortSession(current, Date.now()) : current,
-                );
-              }}
-              onReset={handleResetSession}
-              onLogBatch={handleLogBatch}
-              lastLoggedBatch={lastBatchForSelectedRecipe}
-            />
-          ) : null}
+            {screen === 'session' && activePlan && activeSession && runtimeFrame ? (
+              <SessionConsole
+                recipe={selectedRecipe}
+                plan={activePlan}
+                state={activeSession}
+                frame={runtimeFrame}
+                onStart={() => {
+                  logUiEvent('session_started_from_console');
+                  setActiveSession((current) =>
+                    current ? beginSessionState(current, Date.now()) : current,
+                  );
+                }}
+                onPause={() => {
+                  logUiEvent('session_paused_from_console');
+                  setActiveSession((current) =>
+                    current ? pauseSession(current, Date.now()) : current,
+                  );
+                }}
+                onResume={() => {
+                  logUiEvent('session_resumed_from_console');
+                  setActiveSession((current) =>
+                    current ? resumeSession(current, Date.now()) : current,
+                  );
+                }}
+                onConfirmRecovery={() => {
+                  logUiEvent('session_recovery_confirmed');
+                  setActiveSession((current) =>
+                    current ? confirmRecovery(current, Date.now()) : current,
+                  );
+                }}
+                onAbort={() => {
+                  logUiEvent('session_aborted');
+                  setActiveSession((current) =>
+                    current ? abortSession(current, Date.now()) : current,
+                  );
+                }}
+                onReset={handleResetSession}
+                onLogBatch={handleLogBatch}
+                lastLoggedBatch={lastBatchForSelectedRecipe}
+              />
+            ) : null}
 
-          {screen === 'mix' ? (
-            <MixPanel
-              workspace={mixWorkspace}
-              onChange={setMixWorkspace}
-              onEvent={logUiEvent}
-            />
-          ) : null}
+            {screen === 'mix' ? (
+              <MixPanel
+                workspace={mixWorkspace}
+                onChange={setMixWorkspace}
+                onEvent={logUiEvent}
+              />
+            ) : null}
 
-          {screen === 'saved' ? (
-            <SavedPanel presets={presets} onLoadPreset={handleLoadPreset} />
-          ) : null}
+            {screen === 'saved' ? (
+              <SavedPanel presets={presets} onLoadPreset={handleLoadPreset} />
+            ) : null}
 
-          {screen === 'chemistry' ? <ChemistryPanel batches={batches} /> : null}
+            {screen === 'chemistry' ? <ChemistryPanel batches={batches} /> : null}
 
-          {screen === 'settings' ? (
-            <SettingsPanel
-              preferences={preferences}
-              presets={presets}
-              batches={batches}
-              diagnostics={diagnostics}
-              debugEntries={debugEntries}
-              debugStats={debugStats}
-              onSelectThemeMode={handleSetThemeMode}
-              onToggleHandedness={handleToggleHandedness}
-              onToggleDiagnostics={handleToggleDiagnostics}
-              onExportPresets={handleExportPresets}
-              onExportBatches={handleExportBatches}
-              onExportAllLocalData={handleExportAllLocalData}
-              onCopyDiagnostics={handleCopyDiagnostics}
-              onDownloadDebugLogs={handleDownloadDebugLogs}
-              onRefreshDebugLogs={() => void syncDebugState('manual-refresh')}
-              onClearDebugLogs={() => void handleClearDebugLogs()}
-              onRecordBreadcrumb={() => void handleRecordBreadcrumb()}
-            />
-          ) : null}
+            {screen === 'settings' ? (
+              <SettingsPanel
+                preferences={preferences}
+                presets={presets}
+                batches={batches}
+                diagnostics={diagnostics}
+                debugEntries={debugEntries}
+                debugStats={debugStats}
+                onSelectThemeMode={handleSetThemeMode}
+                onToggleHandedness={handleToggleHandedness}
+                onToggleAnimations={handleToggleAnimations}
+                onToggleButtonSounds={handleToggleButtonSounds}
+                onToggleDiagnostics={handleToggleDiagnostics}
+                onExportPresets={handleExportPresets}
+                onExportBatches={handleExportBatches}
+                onExportAllLocalData={handleExportAllLocalData}
+                onCopyDiagnostics={handleCopyDiagnostics}
+                onDownloadDebugLogs={handleDownloadDebugLogs}
+                onRefreshDebugLogs={() => void syncDebugState('manual-refresh')}
+                onClearDebugLogs={() => void handleClearDebugLogs()}
+                onRecordBreadcrumb={() => void handleRecordBreadcrumb()}
+              />
+            ) : null}
 
-          {screen === 'about' ? <AboutPanel /> : null}
+            {screen === 'about' ? <AboutPanel /> : null}
+          </div>
         </div>
 
         {screen !== 'session' ? (

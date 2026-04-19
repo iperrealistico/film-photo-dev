@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -55,6 +55,14 @@ describe('App', () => {
 
     resetClientStorage();
     window.history.replaceState({}, '', '/');
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: vi.fn()
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: vi.fn()
+    });
   });
 
   it('navigates from recipes into setup', async () => {
@@ -95,19 +103,19 @@ describe('App', () => {
     });
   });
 
-  it('defaults to Ultrared and shows export actions in settings', async () => {
+  it('defaults to White light and shows export actions in settings', async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
     expect(
-      screen.getByRole('button', { name: /^Switch to White light$/i }),
+      screen.getByRole('button', { name: /^Switch to Red safe$/i }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^Settings$/i }));
 
-    const ultraredButton = await screen.findByRole('button', { name: /Ultrared/i });
-    expect(ultraredButton).toHaveAttribute('aria-pressed', 'true');
+    const whiteLightButton = await screen.findByRole('button', { name: /White light/i });
+    expect(whiteLightButton).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /Export presets/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Export chemistry logs/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Export all local data/i })).toBeInTheDocument();
@@ -120,16 +128,45 @@ describe('App', () => {
 
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     expect(themeMeta).not.toBeNull();
-    expect(themeMeta).toHaveAttribute('content', '#4a0004');
+    expect(themeMeta).toHaveAttribute('content', '#0d0f10');
 
     await user.click(screen.getByRole('button', { name: /^Settings$/i }));
-    await user.click(await screen.findByRole('button', { name: /Red-safe/i }));
+    const themeModeGroup = await screen.findByRole('group', {
+      name: /Darkroom light mode/i
+    });
+
+    await user.click(within(themeModeGroup).getByRole('button', { name: /Red safe/i }));
+
+    expect(themeMeta).toHaveAttribute('content', '#4a0004');
+
+    await user.click(within(themeModeGroup).getByRole('button', { name: /Reduced light/i }));
 
     expect(themeMeta).toHaveAttribute('content', '#2a0408');
 
-    await user.click(screen.getByRole('button', { name: /Standard/i }));
+    await user.click(within(themeModeGroup).getByRole('button', { name: /Standard/i }));
 
     expect(themeMeta).toHaveAttribute('content', '#0d0f10');
+  });
+
+  it('persists interaction settings after they are changed in settings', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /^Settings$/i }));
+    await user.click(screen.getByRole('button', { name: /Screen animations/i }));
+    await user.click(screen.getByRole('button', { name: /Button sounds/i }));
+
+    expect(screen.getByRole('button', { name: /Screen animations/i })).toHaveTextContent('Off');
+    expect(screen.getByRole('button', { name: /Button sounds/i })).toHaveTextContent('Off');
+
+    unmount();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /^Settings$/i }));
+
+    expect(await screen.findByRole('button', { name: /Screen animations/i })).toHaveTextContent(
+      'Off',
+    );
+    expect(screen.getByRole('button', { name: /Button sounds/i })).toHaveTextContent('Off');
   });
 
   it('opens the Mix tab and recalculates ratio math from pasted notation', async () => {
@@ -176,6 +213,64 @@ describe('App', () => {
     expect(screen.getAllByText(/B · 1\+31/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Minimum volume at 1\+63/i)).toBeInTheDocument();
     expect(screen.getByText('600 ml')).toBeInTheDocument();
+  });
+
+  it('shows the HC-110 dilution warning live during setup before plan review', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /HC-110/i }));
+
+    await user.selectOptions(screen.getByLabelText(/Film format/i), '4x5');
+    await user.clear(screen.getByLabelText(/Rolls or sheets/i));
+    await user.type(screen.getByLabelText(/Rolls or sheets/i), '6');
+    await user.selectOptions(screen.getByLabelText(/Dilution/i), '63');
+    await user.clear(screen.getByLabelText(/Working solution volume/i));
+    await user.type(screen.getByLabelText(/Working solution volume/i), '350');
+
+    expect(screen.getByRole('heading', { name: /Too dilute right now/i })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Too dilute for this load\. At this volume, switch to B · 1\+31 or mix more working solution\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Minimum volume at 1\+63/i)).toBeInTheDocument();
+    expect(screen.getByText('600 ml')).toBeInTheDocument();
+  });
+
+  it('lets the user return from review to setup with an in-page button', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /HC-110/i }));
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+    await user.click(await screen.findByRole('button', { name: /Back to setup/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'HC-110' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Review plan/i })).toBeInTheDocument();
+  });
+
+  it('scrolls back to the top when switching screens', async () => {
+    const user = userEvent.setup();
+    const scrollToSpy = vi.mocked(window.scrollTo);
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /HC-110/i }));
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    });
+
+    scrollToSpy.mockClear();
+
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    });
   });
 
   it('rehydrates an in-progress session and asks for recovery confirmation', async () => {

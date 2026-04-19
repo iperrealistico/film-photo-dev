@@ -18,7 +18,8 @@ It intentionally stays lighter and less sensitive than the local-only dossier.
 - [Verified] The HC-110 planner now includes richer syrup/load guidance: total mix math, film-area conversion, dilution-capacity checks, and rescue recommendations when the selected dilution is too weak for the planned load.
 - [Verified] The app now also includes a dedicated `Mix` workspace for free-form chemistry calculations, with first-pass tools for bottle scaling, ratio dilution, multi-part chemistry scaling, and reverse “use what is left” math.
 - [Verified] The settings area now includes local export actions for saved templates/presets, chemistry batch logs, and an all-local-data bundle.
-- [Verified] The darkroom theming model now supports `standard`, `red_safe`, and a stricter `ultrared` mode, with `ultrared` selected by default and rendered using black-and-red-only styling.
+- [Verified] The settings area now also includes persistent interaction controls for screen animations and button sounds, and the app resets the view to the top when users switch screens so navigation stays clear on mobile.
+- [Verified] The darkroom theming model now supports `standard`, `red_safe`, and a stricter `ultrared` mode, with `standard` selected by default and `ultrared` retained as the strongest black-and-red-only shell.
 - [Verified] The UI now uses a local bundled SVG icon system in `src/ui/icons.tsx`, so iconography stays free, offline-safe, and available inside the installed PWA without any external font or CDN dependency.
 - [Verified] The local QA surface now includes Vitest domain tests, JSDOM app-flow integration tests, service-worker tests, and manual Playwright-based browser verification.
 - [Verified] The repository now includes a GitHub Pages deployment workflow for the official public GitHub repository.

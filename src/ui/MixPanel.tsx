@@ -31,6 +31,7 @@ import {
   PlusIcon,
   type IconProps
 } from './icons';
+import { NumericInput } from './NumericInput';
 
 interface MixPanelProps {
   workspace: MixWorkspaceState;
@@ -71,16 +72,16 @@ function VolumeField({ label, value, helperText, onChange }: VolumeFieldProps) {
     <label className="field-shell">
       <span className="field-label">{label}</span>
       <div className="volume-control-row">
-        <input
+        <NumericInput
+          aria-label={label}
           className="field-input"
-          type="number"
           min={0}
           step={value.unit === 'l' ? 0.01 : 1}
           value={value.amount}
-          onChange={(event) =>
+          onChange={(nextValue) =>
             onChange({
               ...value,
-              amount: Number(event.target.value)
+              amount: nextValue
             })
           }
         />
@@ -527,28 +528,26 @@ export function MixPanel({ workspace, onChange, onEvent }: MixPanelProps) {
               <div className="field-grid">
                 <label className="field-shell">
                   <span className="field-label">Concentrate parts</span>
-                  <input
+                  <NumericInput
                     className="field-input"
-                    type="number"
                     min={0}
                     step={0.1}
                     value={workspace.dilutionRatio.chemicalParts}
-                    onChange={(event) =>
-                      handleRatioPartChange('chemicalParts', Number(event.target.value))
+                    onChange={(nextValue) =>
+                      handleRatioPartChange('chemicalParts', nextValue)
                     }
                   />
                   <span className="field-help">The concentrate side of the ratio.</span>
                 </label>
                 <label className="field-shell">
                   <span className="field-label">Water parts</span>
-                  <input
+                  <NumericInput
                     className="field-input"
-                    type="number"
                     min={0}
                     step={0.1}
                     value={workspace.dilutionRatio.waterParts}
-                    onChange={(event) =>
-                      handleRatioPartChange('waterParts', Number(event.target.value))
+                    onChange={(nextValue) =>
+                      handleRatioPartChange('waterParts', nextValue)
                     }
                   />
                   <span className="field-help">The water side of the ratio.</span>
@@ -617,15 +616,14 @@ export function MixPanel({ workspace, onChange, onEvent }: MixPanelProps) {
                       </label>
                       <label className="field-shell mix-part-row__field">
                         <span className="field-label">{part.label || 'Part'} amount</span>
-                        <input
+                        <NumericInput
                           className="field-input"
-                          type="number"
                           min={0}
                           step={0.1}
                           value={part.amountMl}
-                          onChange={(event) =>
+                          onChange={(nextValue) =>
                             handleMultiPartItemChange(part.id, {
-                              amountMl: Number(event.target.value)
+                              amountMl: nextValue
                             })
                           }
                         />
@@ -692,28 +690,26 @@ export function MixPanel({ workspace, onChange, onEvent }: MixPanelProps) {
               <div className="field-grid">
                 <label className="field-shell">
                   <span className="field-label">Concentrate parts</span>
-                  <input
+                  <NumericInput
                     className="field-input"
-                    type="number"
                     min={0}
                     step={0.1}
                     value={workspace.useWhatIHave.chemicalParts}
-                    onChange={(event) =>
-                      handleUseWhatIHavePartChange('chemicalParts', Number(event.target.value))
+                    onChange={(nextValue) =>
+                      handleUseWhatIHavePartChange('chemicalParts', nextValue)
                     }
                   />
                   <span className="field-help">The concentrate side of the ratio.</span>
                 </label>
                 <label className="field-shell">
                   <span className="field-label">Water parts</span>
-                  <input
+                  <NumericInput
                     className="field-input"
-                    type="number"
                     min={0}
                     step={0.1}
                     value={workspace.useWhatIHave.waterParts}
-                    onChange={(event) =>
-                      handleUseWhatIHavePartChange('waterParts', Number(event.target.value))
+                    onChange={(nextValue) =>
+                      handleUseWhatIHavePartChange('waterParts', nextValue)
                     }
                   />
                   <span className="field-help">The water side of the ratio.</span>

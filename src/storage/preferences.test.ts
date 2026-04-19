@@ -36,8 +36,12 @@ describe('preferences', () => {
     window.localStorage.clear();
   });
 
-  it('defaults to Ultrared mode when no preferences are stored', () => {
-    expect(loadPreferences().themeMode).toBe('ultrared');
+  it('defaults to White light mode when no preferences are stored', () => {
+    expect(loadPreferences()).toMatchObject({
+      themeMode: 'standard',
+      animationsEnabled: true,
+      buttonSoundsEnabled: true
+    });
   });
 
   it('migrates the legacy red-safe boolean into the new theme mode model', () => {
@@ -51,7 +55,9 @@ describe('preferences', () => {
 
     expect(loadPreferences()).toMatchObject({
       themeMode: 'red_safe',
-      leftHanded: true
+      leftHanded: true,
+      animationsEnabled: true,
+      buttonSoundsEnabled: true
     });
   });
 });

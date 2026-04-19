@@ -1,17 +1,26 @@
 import type { ComponentType } from 'react';
-import type { InputDefinition, RecipeDefinition, RecipeInputMap } from '../domain/types';
+import { formatHc110CapacityWarning } from '../domain/planner';
+import type {
+  InputDefinition,
+  RecipeDefinition,
+  RecipeInputMap,
+  SessionPlan
+} from '../domain/types';
 import {
   ClockIcon,
   FilmIcon,
   FlaskIcon,
   ShieldIcon,
   SlidersIcon,
+  WarningIcon,
   WorkflowIcon,
   type IconProps
 } from './icons';
+import { NumericInput } from './NumericInput';
 
 interface SetupFormProps {
   recipe: RecipeDefinition;
+  plan: SessionPlan;
   values: RecipeInputMap;
   onChange: (inputId: string, value: string | number | boolean) => void;
 }
@@ -48,7 +57,35 @@ const sectionOrder: Array<{
   }
 ];
 
-export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
+function getNumericSnapshotValue(plan: SessionPlan, key: string) {
+  const raw = plan.inputSnapshot[key];
+  return typeof raw === 'number' ? raw : Number(raw ?? 0);
+}
+
+function getLiveHc110CapacityWarning(plan: SessionPlan) {
+  const capacityCheck = plan.capacityCheck;
+  const currentVolumeMl = getNumericSnapshotValue(plan, 'tankVolumeMl');
+  const currentDilutionRatio = getNumericSnapshotValue(plan, 'dilution');
+  const quantity = getNumericSnapshotValue(plan, 'quantity');
+
+  if (
+    !capacityCheck ||
+    capacityCheck.status !== 'danger' ||
+    currentVolumeMl <= 0 ||
+    currentDilutionRatio <= 0 ||
+    quantity <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    capacityCheck,
+    currentDilutionRatio,
+    warningText: formatHc110CapacityWarning(capacityCheck)
+  };
+}
+
+export function SetupForm({ recipe, plan, values, onChange }: SetupFormProps) {
   return (
     <section className="stack">
       <div className="section-heading">
@@ -64,6 +101,10 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
 
       {sectionOrder.map((section) => {
         const SectionIcon = section.icon;
+        const liveHc110Warning =
+          recipe.plannerId === 'hc110' && section.id === 'chemistry'
+            ? getLiveHc110CapacityWarning(plan)
+            : null;
         const inputs = recipe.inputs.filter((input) => {
           if (input.section !== section.id) {
             return false;
@@ -87,6 +128,47 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
               </h3>
               <p>{section.description}</p>
             </div>
+            {liveHc110Warning ? (
+              <div className="capacity-banner capacity-danger stack" aria-live="polite">
+                <div className="panel-heading panel-heading--tight">
+                  <h4>
+                    <span className="title-with-icon title-with-icon--compact">
+                      <WarningIcon aria-hidden="true" />
+                      <span>Too dilute right now</span>
+                    </span>
+                  </h4>
+                  <p>{liveHc110Warning.warningText}</p>
+                </div>
+                <div className="fact-list">
+                  <div className="fact-row emphasis-warn">
+                    <span>Minimum syrup needed</span>
+                    <strong>
+                      {liveHc110Warning.capacityCheck.minimumActiveAgentMl.toFixed(1)} ml
+                    </strong>
+                  </div>
+                  <div className="fact-row emphasis-warn">
+                    <span>Actual syrup available</span>
+                    <strong>
+                      {liveHc110Warning.capacityCheck.actualActiveAgentMl.toFixed(1)} ml
+                    </strong>
+                  </div>
+                  <div className="fact-row emphasis-warn">
+                    <span>Stronger dilution that works</span>
+                    <strong>
+                      {liveHc110Warning.capacityCheck.recommendedDilutionLabel
+                        ? `${liveHc110Warning.capacityCheck.recommendedDilutionLabel} · 1+${liveHc110Warning.capacityCheck.recommendedDilutionRatio}`
+                        : 'Increase total volume first'}
+                    </strong>
+                  </div>
+                  <div className="fact-row emphasis-warn">
+                    <span>Minimum volume at 1+{liveHc110Warning.currentDilutionRatio}</span>
+                    <strong>
+                      {liveHc110Warning.capacityCheck.minimumVolumeAtCurrentDilutionMl.toFixed(0)} ml
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="field-grid">
               {inputs.map((input) => {
                 const options = input.getOptions?.(values) ?? input.options ?? [];
@@ -112,16 +194,13 @@ export function SetupForm({ recipe, values, onChange }: SetupFormProps) {
                       </select>
                     ) : null}
                     {input.type === 'number' ? (
-                      <input
+                      <NumericInput
                         className="field-input"
-                        type="number"
                         min={input.min}
                         max={input.max}
                         step={input.step}
                         value={Number(rawValue)}
-                        onChange={(event) =>
-                          onChange(input.id, Number(event.target.value))
-                        }
+                        onChange={(nextValue) => onChange(input.id, nextValue)}
                       />
                     ) : null}
                     {input.type === 'toggle' ? (

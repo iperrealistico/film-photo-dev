@@ -320,6 +320,20 @@ function describeHc110Capacity(values: RecipeInputMap, syrupMl: number): Capacit
   };
 }
 
+export function formatHc110CapacityWarning(capacityCheck: CapacityCheck) {
+  if (capacityCheck.status === 'danger') {
+    return capacityCheck.recommendedDilutionLabel
+      ? `Too dilute for this load. At this volume, switch to ${capacityCheck.recommendedDilutionLabel} · 1+${capacityCheck.recommendedDilutionRatio} or mix more working solution.`
+      : 'Too dilute for this load. Increase the total working solution before you start.';
+  }
+
+  if (capacityCheck.status === 'limit') {
+    return 'This mix clears the minimum by less than 2 ml of syrup.';
+  }
+
+  return 'Capacity looks good for this film load.';
+}
+
 function buildCs41DeveloperGuidance(temperatureF: number) {
   if (temperatureF <= 80) {
     return {
@@ -828,15 +842,7 @@ function planHc110(
     )
   ];
 
-  const warnings = [
-    capacityCheck.status === 'danger'
-      ? capacityCheck.recommendedDilutionLabel
-        ? `Too dilute for this load. At this volume, switch to ${capacityCheck.recommendedDilutionLabel} · 1+${capacityCheck.recommendedDilutionRatio} or mix more working solution.`
-        : 'Too dilute for this load. Increase the total working solution before you start.'
-      : capacityCheck.status === 'limit'
-        ? 'This mix clears the minimum by less than 2 ml of syrup.'
-        : 'Capacity looks good for this film load.'
-  ];
+  const warnings = [formatHc110CapacityWarning(capacityCheck)];
 
   if (agitationMode === 'continuous') {
     warnings.push(

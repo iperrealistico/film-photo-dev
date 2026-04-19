@@ -329,6 +329,26 @@ export function RefreshIcon(props: IconProps) {
   );
 }
 
+export function SparkIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z" />
+      <path d="m19 14 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z" />
+      <path d="m5 14 .5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z" />
+    </IconBase>
+  );
+}
+
+export function SpeakerIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 10h3l4-4v12l-4-4H5z" />
+      <path d="M16 9a4 4 0 0 1 0 6" />
+      <path d="M18.5 6.5a7 7 0 0 1 0 11" />
+    </IconBase>
+  );
+}
+
 export function LogIcon(props: IconProps) {
   return (
     <IconBase {...props}>

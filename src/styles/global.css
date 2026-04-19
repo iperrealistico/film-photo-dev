@@ -42,6 +42,11 @@
   --radius-md: 18px;
   --radius-sm: 14px;
   --title-ink: var(--text);
+  --brand-icon-filter: none;
+  --motion-fast: 160ms;
+  --motion-medium: 220ms;
+  --motion-page: 300ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -81,6 +86,12 @@ button {
   min-height: 100dvh;
   position: relative;
   overflow: hidden;
+}
+
+.app-shell.is-motion-reduced {
+  --motion-fast: 0ms;
+  --motion-medium: 0ms;
+  --motion-page: 0ms;
 }
 
 .app-backdrop {
@@ -176,6 +187,8 @@ button {
   width: 100%;
   height: 100%;
   display: block;
+  filter: var(--brand-icon-filter);
+  transition: filter 160ms ease;
 }
 
 .surface-icon {
@@ -290,9 +303,37 @@ button {
   gap: 0.55rem;
 }
 
+.topbar-action__label-compact {
+  display: none;
+}
+
 .content-shell {
   display: grid;
   gap: 1rem;
+}
+
+.screen-stage {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.screen-stage.is-animated {
+  animation-duration: var(--motion-page);
+  animation-fill-mode: both;
+  animation-timing-function: var(--motion-ease);
+}
+
+.screen-stage.is-animated.screen-stage--forward {
+  animation-name: screen-enter-forward;
+}
+
+.screen-stage.is-animated.screen-stage--back {
+  animation-name: screen-enter-back;
+}
+
+.screen-stage.is-animated.screen-stage--lateral {
+  animation-name: screen-enter-lateral;
 }
 
 .stack {
@@ -432,10 +473,22 @@ button {
 .toggle-button,
 .field-select,
 .field-input,
+.theme-mode-button,
+.mix-mode-card,
+.chip-button,
 .icon-button,
 .bottom-nav button,
 .primary-button,
-.secondary-button {
+.secondary-button,
+.topbar-action,
+.topbar,
+.bottom-nav,
+.toast,
+.hero-block,
+.panel,
+.session-hero,
+.session-banner,
+.plan-banner {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -646,6 +699,65 @@ button {
 
 .topbar-action {
   background: var(--surface-soft);
+}
+
+.recipe-strip,
+.library-row,
+.toggle-button,
+.theme-mode-button,
+.mix-mode-card,
+.chip-button,
+.primary-button,
+.secondary-button,
+.icon-button,
+.bottom-nav button,
+.topbar-action,
+.topbar,
+.bottom-nav,
+.toast,
+.hero-block,
+.panel,
+.session-hero,
+.session-banner,
+.plan-banner,
+.brand-badge img,
+.app-backdrop {
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-medium) var(--motion-ease),
+    filter var(--motion-fast) ease;
+}
+
+.recipe-strip:is(:hover, :focus-visible),
+.library-row:not(.is-static):is(:hover, :focus-visible),
+.toggle-button:is(:hover, :focus-visible),
+.theme-mode-button:is(:hover, :focus-visible),
+.mix-mode-card:is(:hover, :focus-visible),
+.chip-button:is(:hover, :focus-visible),
+.primary-button:is(:hover, :focus-visible),
+.secondary-button:is(:hover, :focus-visible),
+.icon-button:is(:hover, :focus-visible),
+.bottom-nav button:is(:hover, :focus-visible),
+.topbar-action:is(:hover, :focus-visible) {
+  transform: translateY(-1px);
+  border-color: var(--accent-ring-soft);
+}
+
+.recipe-strip:active,
+.library-row:not(.is-static):active,
+.toggle-button:active,
+.theme-mode-button:active,
+.mix-mode-card:active,
+.chip-button:active,
+.primary-button:active,
+.secondary-button:active,
+.icon-button:active,
+.bottom-nav button:active,
+.topbar-action:active {
+  transform: scale(0.985);
 }
 
 .plan-banner,
@@ -1007,6 +1119,42 @@ button {
   margin: 0;
 }
 
+@keyframes screen-enter-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes screen-enter-back {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes screen-enter-lateral {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .library-row {
   align-items: center;
 }
@@ -1041,6 +1189,7 @@ button {
   --tone-red-bg: rgba(167, 57, 57, 0.16);
   --panel-inner-border: rgba(187, 73, 73, 0.18);
   --title-ink: #d94c4c;
+  --brand-icon-filter: grayscale(1) sepia(1) saturate(8) hue-rotate(-36deg) brightness(0.6) contrast(1.2);
 }
 
 .app-shell.is-red-safe .app-backdrop {
@@ -1088,6 +1237,7 @@ button {
   --status-danger-border: rgba(255, 0, 0, 0.48);
   --panel-inner-border: rgba(255, 0, 0, 0.16);
   --title-ink: #ff4d4d;
+  --brand-icon-filter: grayscale(1) sepia(1) saturate(16) hue-rotate(-42deg) brightness(0.45) contrast(1.28);
   background: #000;
 }
 
@@ -1219,22 +1369,72 @@ button {
 
 @media (max-width: 719px) {
   .topbar {
-    align-items: start;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.85rem;
     padding: 0.7rem;
   }
 
   .topbar__leading {
-    flex: 1 1 auto;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
     min-width: 0;
+  }
+
+  .brand-button__content {
+    align-items: flex-start;
+  }
+
+  .brand-badge {
+    width: 3.1rem;
+    height: 3.1rem;
   }
 
   .brand-button__subtitle {
     font-size: 0.84rem;
+    line-height: 1.35;
   }
 
   .topbar__tools {
     width: 100%;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .topbar-action {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.9rem;
+    white-space: normal;
+  }
+
+  .topbar-action .button-label {
+    width: 100%;
+  }
+
+  .topbar-action--nav {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .topbar-action--theme .button-label {
+    gap: 0.5rem;
+  }
+
+  .topbar-action__label-full {
+    display: none;
+  }
+
+  .topbar-action__label-compact {
+    display: inline;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar__tools {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

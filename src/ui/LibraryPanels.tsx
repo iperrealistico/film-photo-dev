@@ -16,6 +16,8 @@ import {
   DownloadIcon,
   MoonIcon,
   RefreshIcon,
+  SpeakerIcon,
+  SparkIcon,
   ShieldIcon,
   SlidersIcon,
   SunIcon,
@@ -119,6 +121,8 @@ interface SettingsPanelProps {
   debugStats: DebugLogStats | null;
   onSelectThemeMode: (mode: ThemeMode) => void;
   onToggleHandedness: () => void;
+  onToggleAnimations: () => void;
+  onToggleButtonSounds: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
   onExportBatches: () => void;
@@ -139,6 +143,8 @@ export function SettingsPanel({
   debugStats,
   onSelectThemeMode,
   onToggleHandedness,
+  onToggleAnimations,
+  onToggleButtonSounds,
   onToggleDiagnostics,
   onExportPresets,
   onExportBatches,
@@ -160,7 +166,7 @@ export function SettingsPanel({
             <span>Darkroom preferences</span>
           </span>
         </h2>
-        <p>Adjust light mode, layout, exports, and hidden diagnostics.</p>
+        <p>Adjust light mode, interaction feedback, layout, exports, and hidden diagnostics.</p>
       </div>
 
       <section className="panel stack">
@@ -171,7 +177,7 @@ export function SettingsPanel({
               <span>Light mode</span>
             </span>
           </h3>
-          <p>Ultrared is the default. Red-safe and Ultrared keep the shell red-first for darkroom work.</p>
+          <p>White light is the default. Reduced light softens the shell, and Red safe keeps it fully red-first for darkroom work.</p>
         </div>
         <div className="theme-mode-grid" role="group" aria-label="Darkroom light mode">
           <button
@@ -194,9 +200,9 @@ export function SettingsPanel({
           >
             <span className="button-label">
               <MoonIcon aria-hidden="true" />
-              <span>Red-safe</span>
+              <span>Reduced</span>
             </span>
-            <strong>Red mode</strong>
+            <strong>Reduced light</strong>
           </button>
           <button
             type="button"
@@ -206,9 +212,9 @@ export function SettingsPanel({
           >
             <span className="button-label">
               <ShieldIcon aria-hidden="true" />
-              <span>Ultrared</span>
+              <span>Darkroom</span>
             </span>
-            <strong>Default</strong>
+            <strong>Red safe</strong>
           </button>
         </div>
       </section>
@@ -256,6 +262,29 @@ export function SettingsPanel({
       </section>
 
       <section className="panel stack">
+        <div className="panel-heading">
+          <h3>
+            <span className="title-with-icon">
+              <SparkIcon aria-hidden="true" />
+              <span>Interaction</span>
+            </span>
+          </h3>
+          <p>Choose how much motion and button feedback the app uses in the darkroom.</p>
+        </div>
+        <button type="button" className="toggle-button" onClick={onToggleAnimations}>
+          <span className="button-label">
+            <SparkIcon aria-hidden="true" />
+            <span>Screen animations</span>
+          </span>
+          <strong>{preferences.animationsEnabled ? 'On' : 'Off'}</strong>
+        </button>
+        <button type="button" className="toggle-button" onClick={onToggleButtonSounds}>
+          <span className="button-label">
+            <SpeakerIcon aria-hidden="true" />
+            <span>Button sounds</span>
+          </span>
+          <strong>{preferences.buttonSoundsEnabled ? 'On' : 'Off'}</strong>
+        </button>
         <button type="button" className="toggle-button" onClick={onToggleHandedness}>
           <span className="button-label">
             <WorkflowIcon aria-hidden="true" />
