@@ -1610,7 +1610,7 @@ function planDf96(
           ]
         : [
             "The live session will cue the official Df96 agitation pattern for the selected method.",
-            "Save the chemistry log after the run so reused Df96 units stay visible.",
+            "If you are reusing Df96, keep your prior-unit count handy for the next session.",
           ],
     inputSnapshot: values,
   };

@@ -37,7 +37,6 @@ import {
 } from "../domain/runtime";
 import type {
   ActiveSessionState,
-  ChemistryBatch,
   DebugLogEntry,
   DebugLogStats,
   DiagnosticBundle,
@@ -49,11 +48,10 @@ import type {
 } from "../domain/types";
 import { AboutPanel } from "../ui/AboutPanel";
 import { MixPanel } from "../ui/MixPanel";
-import { ChemistryPanel, SavedPanel, SettingsPanel } from "../ui/LibraryPanels";
+import { SavedPanel, SettingsPanel } from "../ui/LibraryPanels";
 import {
   BookIcon,
   BookmarkIcon,
-  BottleIcon,
   ChevronLeftIcon,
   ClipboardIcon,
   FlaskIcon,
@@ -76,12 +74,7 @@ import {
   savePreferences,
   type PreferenceState,
 } from "../storage/preferences";
-import {
-  listBatches,
-  listPresets,
-  saveBatch,
-  savePreset,
-} from "../storage/database";
+import { listPresets, savePreset } from "../storage/database";
 
 type Screen =
   | "recipes"
@@ -90,7 +83,6 @@ type Screen =
   | "plan"
   | "session"
   | "saved"
-  | "chemistry"
   | "about"
   | "settings";
 
@@ -119,11 +111,6 @@ const navigationItems = [
     icon: BookmarkIcon,
   },
   {
-    screen: "chemistry",
-    label: "Batches",
-    icon: BottleIcon,
-  },
-  {
     screen: "settings",
     label: "Settings",
     icon: SlidersIcon,
@@ -141,7 +128,6 @@ const screenLabels: Record<Screen, string> = {
   plan: "Review",
   session: "Darkroom",
   saved: "Saved",
-  chemistry: "Batches",
   about: "About",
   settings: "Settings",
 };
@@ -221,7 +207,6 @@ export function App() {
     null,
   );
   const [presets, setPresets] = useState<SavedPreset[]>([]);
-  const [batches, setBatches] = useState<ChemistryBatch[]>([]);
   const [debugEntries, setDebugEntries] = useState<DebugLogEntry[]>([]);
   const [debugStats, setDebugStats] = useState<DebugLogStats | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -273,15 +258,13 @@ export function App() {
       ? "Mix calculator"
       : screen === "saved"
         ? "Saved presets"
-        : screen === "chemistry"
-          ? "Chemistry log"
-          : screen === "plan"
-            ? "Review plan"
-            : screen === "session"
-              ? "Darkroom session"
-              : screen === "about"
-                ? "About Film Dev"
-                : screenLabels[screen];
+        : screen === "plan"
+          ? "Review plan"
+          : screen === "session"
+            ? "Darkroom session"
+            : screen === "about"
+              ? "About Film Dev"
+              : screenLabels[screen];
   const headerSubtitle =
     screen === "recipes"
       ? "Offline film developing guide"
@@ -289,13 +272,11 @@ export function App() {
         ? "Chemistry math without panic"
         : screen === "saved"
           ? "Trusted setups you can reload fast"
-          : screen === "chemistry"
-            ? "Batches, history, and reuse notes"
-            : screen === "settings"
-              ? "Darkroom modes, interaction, and diagnostics"
-              : screen === "about"
-                ? "Who made this and why it exists"
-                : null;
+          : screen === "settings"
+            ? "Darkroom modes, interaction, and diagnostics"
+            : screen === "about"
+              ? "Who made this and why it exists"
+              : null;
   const backTarget =
     screen === "setup"
       ? "recipes"
@@ -375,19 +356,14 @@ export function App() {
     });
 
     try {
-      const [presetList, batchList] = await Promise.all([
-        listPresets(),
-        listBatches(),
-      ]);
+      const presetList = await listPresets();
       setPresets(presetList);
-      setBatches(batchList);
       logDebugEvent({
         category: "storage",
         event: "local_data_refresh_completed",
         detail: {
           reason,
           presets: presetList.length,
-          batches: batchList.length,
         },
       });
     } catch (error) {
@@ -858,7 +834,6 @@ export function App() {
       `left-handed:${preferences.leftHanded}`,
       `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
-      `batches:${batches.length}`,
       `debug-unlocked:${preferences.debugUnlocked}`,
     ],
     debugStats: debugStats ?? undefined,
@@ -990,59 +965,6 @@ export function App() {
     setActivePlan(draftPlan);
     setActiveSession(session);
     transitionToScreen("session", "forward");
-  }
-
-  async function handleLogBatch() {
-    const plan = activePlan ?? draftPlan;
-    const now = new Date().toISOString();
-    const isDf96Plan = plan.recipeId === "cinestill-df96";
-    const processedUnits =
-      isDf96Plan && plan.inputSnapshot.chemistryState === "reused"
-        ? Number(plan.inputSnapshot.processedUnits) || 1
-        : undefined;
-    const suggestedMinimumTimeSec = isDf96Plan
-      ? plan.phaseList.find((phase) => phase.id === "monobath")?.durationSec
-      : undefined;
-    const batch: ChemistryBatch = {
-      id: `batch-${Math.random().toString(36).slice(2, 10)}`,
-      chemistryLabel: selectedRecipe.developerLabel,
-      processType: selectedRecipe.processType,
-      mixedAt: now,
-      lastUsedAt: now,
-      sessionsLogged: 1,
-      estimatedRemainingCapacity:
-        plan.capacityCheck?.status === "danger"
-          ? "Already near the recommended capacity limit"
-          : isDf96Plan
-            ? processedUnits
-              ? `Reuse recorded after ${processedUnits} prior unit${processedUnits === 1 ? "" : "s"}`
-              : "Fresh Df96 logged for future reuse tracking"
-            : selectedRecipe.processType === "color"
-              ? "Track roll count and developer age"
-              : "Likely fine for another similar run",
-      processedUnits,
-      suggestedMinimumTimeSec,
-      notes: isDf96Plan
-        ? `Logged after ${plan.recipeName}. Minimum monobath ${formatDuration(suggestedMinimumTimeSec ?? 0)}.`
-        : `Logged after ${plan.recipeName}.`,
-    };
-
-    try {
-      logUiEvent("batch_log_requested", {
-        chemistryLabel: batch.chemistryLabel,
-      });
-      await saveBatch(batch);
-      await refreshLocalData("save-batch");
-      showToast("Chemistry log saved.");
-    } catch (error) {
-      logDebugEvent({
-        level: "error",
-        category: "ui",
-        event: "batch_log_failed",
-        detail: { error },
-      });
-      showToast("Couldn't save the chemistry log.");
-    }
   }
 
   async function handleCopyDiagnostics() {
@@ -1292,29 +1214,6 @@ export function App() {
     }
   }
 
-  function handleExportBatches() {
-    try {
-      downloadJsonFile(buildExportFileName("chemistry-logs"), {
-        exportedAt: new Date().toISOString(),
-        kind: "chemistry_logs",
-        count: batches.length,
-        batches,
-      });
-      logUiEvent("chemistry_logs_exported", {
-        count: batches.length,
-      });
-      showToast("Chemistry logs exported.");
-    } catch (error) {
-      logDebugEvent({
-        level: "error",
-        category: "storage",
-        event: "chemistry_logs_export_failed",
-        detail: { error, count: batches.length },
-      });
-      showToast("Couldn't export chemistry logs.");
-    }
-  }
-
   function handleExportAllLocalData() {
     try {
       downloadJsonFile(buildExportFileName("local-data"), {
@@ -1322,13 +1221,11 @@ export function App() {
         kind: "all_local_data",
         preferences,
         presets,
-        batches,
         activePlan,
         activeSession,
       });
       logUiEvent("all_local_data_exported", {
         presets: presets.length,
-        batches: batches.length,
         hasActivePlan: Boolean(activePlan),
         hasActiveSession: Boolean(activeSession),
       });
@@ -1341,16 +1238,11 @@ export function App() {
         detail: {
           error,
           presets: presets.length,
-          batches: batches.length,
         },
       });
       showToast("Couldn't export all local data.");
     }
   }
-
-  const lastBatchForSelectedRecipe = batches.find(
-    (batch) => batch.chemistryLabel === selectedRecipe.developerLabel,
-  );
   const QuickThemeIcon =
     preferences.themeMode === "standard" ? ShieldIcon : SunIcon;
 
@@ -1542,8 +1434,6 @@ export function App() {
                   );
                 }}
                 onReset={handleResetSession}
-                onLogBatch={handleLogBatch}
-                lastLoggedBatch={lastBatchForSelectedRecipe}
               />
             ) : null}
 
@@ -1559,15 +1449,10 @@ export function App() {
               <SavedPanel presets={presets} onLoadPreset={handleLoadPreset} />
             ) : null}
 
-            {screen === "chemistry" ? (
-              <ChemistryPanel batches={batches} />
-            ) : null}
-
             {screen === "settings" ? (
               <SettingsPanel
                 preferences={preferences}
                 presets={presets}
-                batches={batches}
                 diagnostics={diagnostics}
                 debugEntries={debugEntries}
                 debugStats={debugStats}
@@ -1578,7 +1463,6 @@ export function App() {
                 onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
                 onExportPresets={handleExportPresets}
-                onExportBatches={handleExportBatches}
                 onExportAllLocalData={handleExportAllLocalData}
                 onCopyDiagnostics={handleCopyDiagnostics}
                 onDownloadDebugLogs={handleDownloadDebugLogs}

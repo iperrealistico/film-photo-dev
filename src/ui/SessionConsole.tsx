@@ -1,13 +1,11 @@
 import { formatDateTime, formatDuration } from "../domain/format";
 import type {
   ActiveSessionState,
-  ChemistryBatch,
   RecipeDefinition,
   RuntimeFrame,
   SessionPlan,
 } from "../domain/types";
 import {
-  BottleIcon,
   ClockIcon,
   LogIcon,
   PauseIcon,
@@ -30,8 +28,6 @@ interface SessionConsoleProps {
   onConfirmRecovery: () => void;
   onAbort: () => void;
   onReset: () => void;
-  onLogBatch: () => void;
-  lastLoggedBatch?: ChemistryBatch;
 }
 
 function formatPhaseDurationLabel(
@@ -53,8 +49,6 @@ export function SessionConsole({
   onConfirmRecovery,
   onAbort,
   onReset,
-  onLogBatch,
-  lastLoggedBatch,
 }: SessionConsoleProps) {
   const upcomingPhases = frame.currentPhase
     ? plan.phaseList.slice(frame.phaseIndex + 1, frame.phaseIndex + 4)
@@ -158,7 +152,7 @@ export function SessionConsole({
             {isCompletionState
               ? state.status === "aborted"
                 ? "This session ended early. Reset before you begin another run."
-                : "Review the summary and save the chemistry log if you want."
+                : "Review the summary when you're ready."
               : isAwaitingPhaseStart
                 ? isManualPhase
                   ? "This step is manual on purpose. Complete it only after you finish the physical rinse or wash action."
@@ -288,18 +282,6 @@ export function SessionConsole({
               <span>New session</span>
             </span>
           </button>
-          {state.status !== "aborted" ? (
-            <button
-              type="button"
-              className="primary-button"
-              onClick={onLogBatch}
-            >
-              <span className="button-label">
-                <BottleIcon aria-hidden="true" />
-                <span>Save chemistry log</span>
-              </span>
-            </button>
-          ) : null}
         </div>
       )}
 
@@ -362,44 +344,6 @@ export function SessionConsole({
           </div>
         </section>
       </div>
-
-      {lastLoggedBatch ? (
-        <section className="panel stack">
-          <div className="panel-heading">
-            <h3>
-              <span className="title-with-icon">
-                <BottleIcon aria-hidden="true" />
-                <span>Most recent chemistry log</span>
-              </span>
-            </h3>
-            <p>Quick reference for the last saved batch of this chemistry.</p>
-          </div>
-          <div className="fact-list">
-            <div className="fact-row">
-              <span>{lastLoggedBatch.chemistryLabel}</span>
-              <strong>{lastLoggedBatch.estimatedRemainingCapacity}</strong>
-            </div>
-            <div className="fact-row">
-              <span>Last used</span>
-              <strong>{formatDateTime(lastLoggedBatch.lastUsedAt)}</strong>
-            </div>
-            {typeof lastLoggedBatch.processedUnits === "number" ? (
-              <div className="fact-row">
-                <span>Prior units logged</span>
-                <strong>{lastLoggedBatch.processedUnits}</strong>
-              </div>
-            ) : null}
-            {typeof lastLoggedBatch.suggestedMinimumTimeSec === "number" ? (
-              <div className="fact-row">
-                <span>Saved minimum time</span>
-                <strong>
-                  {formatDuration(lastLoggedBatch.suggestedMinimumTimeSec)}
-                </strong>
-              </div>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
     </section>
   );
 }

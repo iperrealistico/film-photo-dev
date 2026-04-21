@@ -90,6 +90,9 @@ describe("App", () => {
         name: /Film developing, guided step by step/i,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Batches$/i }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Cs41 powder kit/i }));
 
@@ -167,8 +170,8 @@ describe("App", () => {
       screen.getByRole("button", { name: /Export presets/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Export chemistry logs/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /Export chemistry logs/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Export all local data/i }),
     ).toBeInTheDocument();

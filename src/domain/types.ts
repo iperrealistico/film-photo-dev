@@ -274,19 +274,6 @@ export interface SavedPreset {
   inputSnapshot: RecipeInputMap;
 }
 
-export interface ChemistryBatch {
-  id: string;
-  chemistryLabel: string;
-  processType: ProcessType;
-  mixedAt: string;
-  lastUsedAt: string;
-  sessionsLogged: number;
-  estimatedRemainingCapacity: string;
-  processedUnits?: number;
-  suggestedMinimumTimeSec?: number;
-  notes?: string;
-}
-
 export interface AlertProfile {
   id: string;
   name: string;

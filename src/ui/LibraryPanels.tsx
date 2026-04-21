@@ -1,16 +1,14 @@
-import { formatDateTime } from '../domain/format';
+import { formatDateTime } from "../domain/format";
 import type {
-  ChemistryBatch,
   DebugLogEntry,
   DebugLogStats,
   DiagnosticBundle,
   SavedPreset,
-  ThemeMode
-} from '../domain/types';
-import type { PreferenceState } from '../storage/preferences';
+  ThemeMode,
+} from "../domain/types";
+import type { PreferenceState } from "../storage/preferences";
 import {
   BookmarkIcon,
-  BottleIcon,
   BugIcon,
   ClipboardIcon,
   DownloadIcon,
@@ -23,8 +21,8 @@ import {
   SlidersIcon,
   SunIcon,
   TrashIcon,
-  WorkflowIcon
-} from './icons';
+  WorkflowIcon,
+} from "./icons";
 
 interface SavedPanelProps {
   presets: SavedPreset[];
@@ -46,7 +44,9 @@ export function SavedPanel({ presets, onLoadPreset }: SavedPanelProps) {
       </div>
       <section className="panel stack">
         {presets.length === 0 ? (
-          <p className="soft-copy">No presets yet. Save one from the review screen.</p>
+          <p className="soft-copy">
+            No presets yet. Save one from the review screen.
+          </p>
         ) : (
           presets.map((preset) => (
             <button
@@ -73,51 +73,9 @@ export function SavedPanel({ presets, onLoadPreset }: SavedPanelProps) {
   );
 }
 
-interface ChemistryPanelProps {
-  batches: ChemistryBatch[];
-}
-
-export function ChemistryPanel({ batches }: ChemistryPanelProps) {
-  return (
-    <section className="stack">
-      <div className="section-heading">
-        <p className="eyebrow">Batches</p>
-        <h2>
-          <span className="title-with-icon title-with-icon--large">
-            <BottleIcon aria-hidden="true" />
-            <span>Chemistry batch history</span>
-          </span>
-        </h2>
-        <p>Track what was mixed, when it was last used, and how much life it likely has left.</p>
-      </div>
-      <section className="panel stack">
-        {batches.length === 0 ? (
-          <p className="soft-copy">No batches logged yet. After a session, save the chemistry from the summary screen.</p>
-        ) : (
-          batches.map((batch) => (
-            <div key={batch.id} className="library-row is-static">
-              <div className="library-row__main">
-                <span className="surface-icon surface-icon--row">
-                  <BottleIcon aria-hidden="true" />
-                </span>
-                <div className="library-row__content">
-                  <strong>{batch.chemistryLabel}</strong>
-                  <p>{batch.estimatedRemainingCapacity}</p>
-                </div>
-              </div>
-              <span>{formatDateTime(batch.lastUsedAt)}</span>
-            </div>
-          ))
-        )}
-      </section>
-    </section>
-  );
-}
-
 interface SettingsPanelProps {
   preferences: PreferenceState;
   presets: SavedPreset[];
-  batches: ChemistryBatch[];
   debugEntries: DebugLogEntry[];
   debugStats: DebugLogStats | null;
   onSelectThemeMode: (mode: ThemeMode) => void;
@@ -127,7 +85,6 @@ interface SettingsPanelProps {
   onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
-  onExportBatches: () => void;
   onExportAllLocalData: () => void;
   diagnostics: DiagnosticBundle;
   onCopyDiagnostics: () => void;
@@ -140,7 +97,6 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   preferences,
   presets,
-  batches,
   debugEntries,
   debugStats,
   onSelectThemeMode,
@@ -150,14 +106,13 @@ export function SettingsPanel({
   onTogglePhaseConfirmation,
   onToggleDiagnostics,
   onExportPresets,
-  onExportBatches,
   onExportAllLocalData,
   diagnostics,
   onCopyDiagnostics,
   onDownloadDebugLogs,
   onRefreshDebugLogs,
   onClearDebugLogs,
-  onRecordBreadcrumb
+  onRecordBreadcrumb,
 }: SettingsPanelProps) {
   return (
     <section className="stack">
@@ -169,7 +124,10 @@ export function SettingsPanel({
             <span>Darkroom preferences</span>
           </span>
         </h2>
-        <p>Adjust light mode, interaction feedback, layout, exports, and hidden diagnostics.</p>
+        <p>
+          Adjust light mode, interaction feedback, layout, exports, and hidden
+          diagnostics.
+        </p>
       </div>
 
       <section className="panel stack">
@@ -180,14 +138,21 @@ export function SettingsPanel({
               <span>Light mode</span>
             </span>
           </h3>
-          <p>White light is the default. Reduced light softens the shell, and Red safe keeps it fully red-first for darkroom work.</p>
+          <p>
+            White light is the default. Reduced light softens the shell, and Red
+            safe keeps it fully red-first for darkroom work.
+          </p>
         </div>
-        <div className="theme-mode-grid" role="group" aria-label="Darkroom light mode">
+        <div
+          className="theme-mode-grid"
+          role="group"
+          aria-label="Darkroom light mode"
+        >
           <button
             type="button"
-            className={`theme-mode-button ${preferences.themeMode === 'standard' ? 'is-active' : ''}`}
-            aria-pressed={preferences.themeMode === 'standard'}
-            onClick={() => onSelectThemeMode('standard')}
+            className={`theme-mode-button ${preferences.themeMode === "standard" ? "is-active" : ""}`}
+            aria-pressed={preferences.themeMode === "standard"}
+            onClick={() => onSelectThemeMode("standard")}
           >
             <span className="button-label">
               <SunIcon aria-hidden="true" />
@@ -197,9 +162,9 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            className={`theme-mode-button ${preferences.themeMode === 'red_safe' ? 'is-active' : ''}`}
-            aria-pressed={preferences.themeMode === 'red_safe'}
-            onClick={() => onSelectThemeMode('red_safe')}
+            className={`theme-mode-button ${preferences.themeMode === "red_safe" ? "is-active" : ""}`}
+            aria-pressed={preferences.themeMode === "red_safe"}
+            onClick={() => onSelectThemeMode("red_safe")}
           >
             <span className="button-label">
               <MoonIcon aria-hidden="true" />
@@ -209,9 +174,9 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            className={`theme-mode-button ${preferences.themeMode === 'ultrared' ? 'is-active' : ''}`}
-            aria-pressed={preferences.themeMode === 'ultrared'}
-            onClick={() => onSelectThemeMode('ultrared')}
+            className={`theme-mode-button ${preferences.themeMode === "ultrared" ? "is-active" : ""}`}
+            aria-pressed={preferences.themeMode === "ultrared"}
+            onClick={() => onSelectThemeMode("ultrared")}
           >
             <span className="button-label">
               <ShieldIcon aria-hidden="true" />
@@ -230,32 +195,30 @@ export function SettingsPanel({
               <span>Exports</span>
             </span>
           </h3>
-          <p>Download your presets, chemistry logs, or the full local dataset.</p>
+          <p>Download your presets or the full local dataset.</p>
         </div>
         <div className="fact-list">
           <div className="fact-row">
             <span>Saved presets</span>
             <strong>{presets.length}</strong>
           </div>
-          <div className="fact-row">
-            <span>Chemistry logs</span>
-            <strong>{batches.length}</strong>
-          </div>
         </div>
         <div className="debug-toolbar">
-          <button type="button" className="secondary-button" onClick={onExportPresets}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onExportPresets}
+          >
             <span className="button-label">
               <BookmarkIcon aria-hidden="true" />
               <span>Export presets</span>
             </span>
           </button>
-          <button type="button" className="secondary-button" onClick={onExportBatches}>
-            <span className="button-label">
-              <BottleIcon aria-hidden="true" />
-              <span>Export chemistry logs</span>
-            </span>
-          </button>
-          <button type="button" className="secondary-button" onClick={onExportAllLocalData}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onExportAllLocalData}
+          >
             <span className="button-label">
               <DownloadIcon aria-hidden="true" />
               <span>Export all local data</span>
@@ -272,43 +235,68 @@ export function SettingsPanel({
               <span>Interaction</span>
             </span>
           </h3>
-          <p>Choose how much motion, feedback, and step-by-step control the app uses in the darkroom.</p>
+          <p>
+            Choose how much motion, feedback, and step-by-step control the app
+            uses in the darkroom.
+          </p>
         </div>
-        <button type="button" className="toggle-button" onClick={onToggleAnimations}>
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={onToggleAnimations}
+        >
           <span className="button-label">
             <SparkIcon aria-hidden="true" />
             <span>Screen animations</span>
           </span>
-          <strong>{preferences.animationsEnabled ? 'On' : 'Off'}</strong>
+          <strong>{preferences.animationsEnabled ? "On" : "Off"}</strong>
         </button>
-        <button type="button" className="toggle-button" onClick={onToggleButtonSounds}>
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={onToggleButtonSounds}
+        >
           <span className="button-label">
             <SpeakerIcon aria-hidden="true" />
             <span>Button sounds</span>
           </span>
-          <strong>{preferences.buttonSoundsEnabled ? 'On' : 'Off'}</strong>
+          <strong>{preferences.buttonSoundsEnabled ? "On" : "Off"}</strong>
         </button>
-        <button type="button" className="toggle-button" onClick={onTogglePhaseConfirmation}>
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={onTogglePhaseConfirmation}
+        >
           <span className="button-label">
             <PauseIcon aria-hidden="true" />
             <span>Pause between steps</span>
           </span>
-          <strong>{preferences.phaseConfirmationEnabled ? 'On' : 'Off'}</strong>
+          <strong>{preferences.phaseConfirmationEnabled ? "On" : "Off"}</strong>
         </button>
-        <button type="button" className="toggle-button" onClick={onToggleHandedness}>
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={onToggleHandedness}
+        >
           <span className="button-label">
             <WorkflowIcon aria-hidden="true" />
             <span>Control layout</span>
           </span>
-          <strong>{preferences.leftHanded ? 'Left-handed' : 'Right-handed'}</strong>
+          <strong>
+            {preferences.leftHanded ? "Left-handed" : "Right-handed"}
+          </strong>
         </button>
         {preferences.debugUnlocked ? (
-          <button type="button" className="toggle-button" onClick={onToggleDiagnostics}>
+          <button
+            type="button"
+            className="toggle-button"
+            onClick={onToggleDiagnostics}
+          >
             <span className="button-label">
               <BugIcon aria-hidden="true" />
               <span>Diagnostics panel</span>
             </span>
-            <strong>{preferences.diagnosticsOpen ? 'Shown' : 'Hidden'}</strong>
+            <strong>{preferences.diagnosticsOpen ? "Shown" : "Hidden"}</strong>
           </button>
         ) : null}
       </section>
@@ -323,30 +311,46 @@ export function SettingsPanel({
               </span>
             </h3>
             <p>
-              These tools stay hidden until unlocked so the normal darkroom UI can
-              stay simple.
+              These tools stay hidden until unlocked so the normal darkroom UI
+              can stay simple.
             </p>
           </div>
           <div className="debug-toolbar">
-            <button type="button" className="secondary-button" onClick={onRefreshDebugLogs}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onRefreshDebugLogs}
+            >
               <span className="button-label">
                 <RefreshIcon aria-hidden="true" />
                 <span>Refresh log</span>
               </span>
             </button>
-            <button type="button" className="secondary-button" onClick={onRecordBreadcrumb}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onRecordBreadcrumb}
+            >
               <span className="button-label">
                 <ClipboardIcon aria-hidden="true" />
                 <span>Add breadcrumb</span>
               </span>
             </button>
-            <button type="button" className="secondary-button" onClick={onDownloadDebugLogs}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onDownloadDebugLogs}
+            >
               <span className="button-label">
                 <DownloadIcon aria-hidden="true" />
                 <span>Download log file</span>
               </span>
             </button>
-            <button type="button" className="secondary-button" onClick={onClearDebugLogs}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onClearDebugLogs}
+            >
               <span className="button-label">
                 <TrashIcon aria-hidden="true" />
                 <span>Clear log</span>
@@ -362,13 +366,17 @@ export function SettingsPanel({
               <div className="fact-row">
                 <span>Kept for</span>
                 <strong>
-                  {Math.round(debugStats.maxAgeMs / (1000 * 60 * 60 * 24))} days /{' '}
-                  {debugStats.maxEntries} max
+                  {Math.round(debugStats.maxAgeMs / (1000 * 60 * 60 * 24))} days
+                  / {debugStats.maxEntries} max
                 </strong>
               </div>
               <div className="fact-row">
                 <span>Last cleanup</span>
-                <strong>{debugStats.lastPrunedAt ? formatDateTime(debugStats.lastPrunedAt) : 'Not yet'}</strong>
+                <strong>
+                  {debugStats.lastPrunedAt
+                    ? formatDateTime(debugStats.lastPrunedAt)
+                    : "Not yet"}
+                </strong>
               </div>
             </div>
           ) : null}
@@ -383,7 +391,9 @@ export function SettingsPanel({
                 </div>
                 <p>{entry.level.toUpperCase()}</p>
                 <pre className="debug-log-detail">
-                  {entry.detail ? JSON.stringify(entry.detail, null, 2) : 'No detail'}
+                  {entry.detail
+                    ? JSON.stringify(entry.detail, null, 2)
+                    : "No detail"}
                 </pre>
               </article>
             ))}
@@ -409,13 +419,21 @@ export function SettingsPanel({
             {JSON.stringify(diagnostics, null, 2)}
           </pre>
           <div className="debug-toolbar">
-            <button type="button" className="secondary-button" onClick={onCopyDiagnostics}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onCopyDiagnostics}
+            >
               <span className="button-label">
                 <ClipboardIcon aria-hidden="true" />
                 <span>Copy diagnostics</span>
               </span>
             </button>
-            <button type="button" className="secondary-button" onClick={onDownloadDebugLogs}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onDownloadDebugLogs}
+            >
               <span className="button-label">
                 <DownloadIcon aria-hidden="true" />
                 <span>Download debug bundle</span>
