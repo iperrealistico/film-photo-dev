@@ -7,6 +7,7 @@ import type {
 import {
   df96AgitationOptions,
   df96Films,
+  DF96_UNIT_HELPER_TEXT,
   df96WashModes,
   getDf96FilmById,
   getDf96MatrixCell,
@@ -542,7 +543,7 @@ export const recipes: RecipeDefinition[] = [
         id: 'agitationMode',
         label: 'Agitation method',
         type: 'select',
-        section: 'workflow',
+        section: 'chemistry',
         defaultValue: 'constant',
         options: df96AgitationOptions.map((option) => ({
           value: option.id,
@@ -570,8 +571,7 @@ export const recipes: RecipeDefinition[] = [
         max: 50,
         step: 1,
         defaultValue: 1,
-        helperText:
-          'Count each previously processed DF96 tank run as 1 unit. Use the total prior rolls or tank runs this chemistry has already processed.',
+        helperText: DF96_UNIT_HELPER_TEXT,
         isVisible: (values) => values.chemistryState === 'reused'
       },
       {

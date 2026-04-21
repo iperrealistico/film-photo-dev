@@ -481,6 +481,10 @@ button {
   gap: 0.9rem;
 }
 
+.field-grid {
+  align-items: start;
+}
+
 .recipe-browser-top,
 .recipe-browser-toolbar,
 .pager-controls,
@@ -674,6 +678,8 @@ button {
   border-radius: var(--radius-md);
   display: grid;
   gap: 0.65rem;
+  align-content: start;
+  align-self: start;
 }
 
 .panel--inner {

@@ -43,7 +43,7 @@ export const DF96_REUSE_STEP_SEC = 15;
 export const DF96_MAX_REUSE_TIME_SEC = 8 * 60;
 export const DF96_STANDARD_WASH_DEFAULT_SEC = 5 * 60;
 export const DF96_UNIT_HELPER_TEXT =
-  'Count each previously processed DF96 tank run as 1 unit. Use the total prior rolls or tank runs this chemistry has already processed.';
+  '1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets. Count the total prior units this chemistry has already processed.';
 export const DF96_LIFESPAN_NOTE =
   'Expected shelf life is 1 year from purchase. Once opened, CineStill says Df96 should ideally be used within 2 months.';
 export const DF96_EXHAUSTION_NOTE =

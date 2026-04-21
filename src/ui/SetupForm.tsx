@@ -25,7 +25,7 @@ interface SetupFormProps {
   onChange: (inputId: string, value: string | number | boolean) => void;
 }
 
-const sectionOrder: Array<{
+const defaultSectionOrder: Array<{
   id: InputDefinition['section'];
   title: string;
   description: string;
@@ -57,6 +57,34 @@ const sectionOrder: Array<{
   }
 ];
 
+function getSectionOrder(recipe: RecipeDefinition) {
+  if (recipe.plannerId !== 'df96') {
+    return defaultSectionOrder;
+  }
+
+  return defaultSectionOrder.map((section) => {
+    if (section.id === 'chemistry') {
+      return {
+        ...section,
+        title: 'Workflow',
+        description:
+          'Choose the official DF96 temperature and agitation pairing, then note whether the chemistry is fresh or reused.'
+      };
+    }
+
+    if (section.id === 'workflow') {
+      return {
+        ...section,
+        title: 'Additional options',
+        description:
+          'Set wash handling and any optional extra time above the official minimum.'
+      };
+    }
+
+    return section;
+  });
+}
+
 function getNumericSnapshotValue(plan: SessionPlan, key: string) {
   const raw = plan.inputSnapshot[key];
   return typeof raw === 'number' ? raw : Number(raw ?? 0);
@@ -86,6 +114,8 @@ function getLiveHc110CapacityWarning(plan: SessionPlan) {
 }
 
 export function SetupForm({ recipe, plan, values, onChange }: SetupFormProps) {
+  const sectionOrder = getSectionOrder(recipe);
+
   return (
     <section className="stack">
       <div className="section-heading">

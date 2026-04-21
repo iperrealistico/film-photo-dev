@@ -333,6 +333,46 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /Unsupported combo/i })).toBeDisabled();
   });
 
+  it('shows DF96 workflow controls together and explains reuse units like Cs41', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+
+    const workflowHeading = screen.getByRole('heading', { name: /^Workflow$/i });
+    const workflowSection = workflowHeading.closest('section');
+    if (!workflowSection) {
+      throw new Error('Missing DF96 workflow section.');
+    }
+
+    expect(within(workflowSection).getByLabelText(/Monobath temperature/i)).toBeInTheDocument();
+    expect(within(workflowSection).getByLabelText(/Agitation method/i)).toBeInTheDocument();
+
+    const additionalOptionsHeading = screen.getByRole('heading', {
+      name: /Additional options/i
+    });
+    const additionalOptionsSection = additionalOptionsHeading.closest('section');
+    if (!additionalOptionsSection) {
+      throw new Error('Missing DF96 additional options section.');
+    }
+
+    expect(
+      within(additionalOptionsSection).getByLabelText(/Extra time above minimum/i),
+    ).toBeInTheDocument();
+    expect(
+      within(additionalOptionsSection).getByLabelText(/Archival wash method/i),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/Chemistry condition/i), 'reused');
+
+    expect(
+      screen.getByText(
+        /1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets\./i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('pauses automatically for manual DF96 wash steps', async () => {
     const user = userEvent.setup();
 
