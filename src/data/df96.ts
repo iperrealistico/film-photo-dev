@@ -41,6 +41,7 @@ export interface Df96FilmSpec {
 export const DF96_PULL_BAND_EXTRA_SEC = 60;
 export const DF96_REUSE_STEP_SEC = 15;
 export const DF96_MAX_REUSE_TIME_SEC = 8 * 60;
+export const DF96_DRAIN_DEFAULT_SEC = 10;
 export const DF96_STANDARD_WASH_DEFAULT_SEC = 5 * 60;
 export const DF96_UNIT_HELPER_TEXT =
   '1 unit = one 135 roll, one 120 roll, one 8x10 sheet, or four 4x5 sheets. Count the total prior units this chemistry has already processed.';
@@ -68,6 +69,8 @@ export const DF96_STANDARD_WASH_NOTE =
   'Archival wash: run water at room temperature for 5 minutes, or fill and empty the tank at least 10 times.';
 export const DF96_MINIMAL_WASH_NOTE =
   'Minimal-water archival wash: 5 inversions, then 10, then 20, then a final rinse.';
+export const DF96_DRAIN_NOTE =
+  'Drain the monobath completely before the wash sequence starts.';
 
 export const df96AgitationOptions = [
   {

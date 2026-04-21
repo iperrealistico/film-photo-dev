@@ -8,6 +8,7 @@ import { defaultAlertProfiles, getRecipeById } from '../data/recipes';
 import { createDefaultInputState, createSessionPlan } from '../domain/planner';
 import { createActiveSession, startSession } from '../domain/runtime';
 import { saveActiveSessionSnapshot } from '../storage/preferences';
+import * as sessionAudio from './sessionAudio';
 
 function createMemoryStorage() {
   const data = new Map<string, string>();
@@ -385,6 +386,9 @@ describe('App', () => {
     expect(
       within(additionalOptionsSection).getByLabelText(/Archival wash method/i),
     ).toBeInTheDocument();
+    expect(
+      within(additionalOptionsSection).getByLabelText(/Drain before wash/i),
+    ).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText(/Chemistry condition/i), 'reused');
 
@@ -413,7 +417,7 @@ describe('App', () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(190_000);
+      await vi.advanceTimersByTimeAsync(200_000);
     });
 
     expect(screen.getByRole('button', { name: /Complete this step/i })).toBeInTheDocument();
@@ -442,6 +446,51 @@ describe('App', () => {
 
     expect(screen.getByText(/Keep agitation moving in 29s/i)).toBeInTheDocument();
     expect(screen.queryByText(/No more cues in this step/i)).not.toBeInTheDocument();
+  }, 10000);
+
+  it('plays explicit phase-transition sounds when DF96 moves into drain and wash', async () => {
+    const user = userEvent.setup();
+    const audioSpy = vi
+      .spyOn(sessionAudio, 'playToneSequence')
+      .mockImplementation(() => undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(
+      audioSpy.mock.calls.some(
+        ([toneKinds]) =>
+          Array.isArray(toneKinds) &&
+          toneKinds[0] === 'phase_end' &&
+          toneKinds[1] === 'drain',
+      ),
+    ).toBe(true);
+    expect(
+      audioSpy.mock.calls.some(
+        ([toneKinds]) =>
+          Array.isArray(toneKinds) &&
+          toneKinds[0] === 'phase_end' &&
+          toneKinds[1] === 'phase_start',
+      ),
+    ).toBe(true);
   }, 10000);
 
   it('scrolls back to the top when switching screens', async () => {

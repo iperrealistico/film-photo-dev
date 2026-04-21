@@ -64,6 +64,7 @@ import { PlanReview } from '../ui/PlanReview';
 import { RecipeBrowser } from '../ui/RecipeBrowser';
 import { SessionConsole } from '../ui/SessionConsole';
 import { SetupForm } from '../ui/SetupForm';
+import * as sessionAudio from './sessionAudio';
 import {
   clearActiveSessionSnapshot,
   loadActiveSessionSnapshot,
@@ -160,65 +161,6 @@ function downloadJsonFile(filename: string, payload: unknown) {
   link.click();
 
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-let sharedAudioContext: AudioContext | null = null;
-
-function getSharedAudioContext() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  if (!('AudioContext' in window || 'webkitAudioContext' in window)) {
-    return null;
-  }
-
-  if (sharedAudioContext && sharedAudioContext.state !== 'closed') {
-    return sharedAudioContext;
-  }
-
-  const Context = window.AudioContext ?? (window as typeof window & {
-    webkitAudioContext: typeof AudioContext;
-  }).webkitAudioContext;
-  sharedAudioContext = new Context();
-  return sharedAudioContext;
-}
-
-function playTone(kind: 'button' | 'cue') {
-  const audioContext = getSharedAudioContext();
-
-  if (!audioContext) {
-    return;
-  }
-
-  if (audioContext.state === 'suspended') {
-    void audioContext.resume().catch(() => undefined);
-  }
-
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  const startAt = audioContext.currentTime;
-
-  if (kind === 'button') {
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(1046.5, startAt);
-    oscillator.frequency.exponentialRampToValueAtTime(880, startAt + 0.05);
-    gainNode.gain.setValueAtTime(0.0001, startAt);
-    gainNode.gain.exponentialRampToValueAtTime(0.012, startAt + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.085);
-  } else {
-    oscillator.type = 'triangle';
-    oscillator.frequency.setValueAtTime(880, startAt);
-    oscillator.frequency.exponentialRampToValueAtTime(740, startAt + 0.12);
-    gainNode.gain.setValueAtTime(0.0001, startAt);
-    gainNode.gain.exponentialRampToValueAtTime(0.02, startAt + 0.015);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13);
-  }
-
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  oscillator.start(startAt);
-  oscillator.stop(startAt + (kind === 'button' ? 0.09 : 0.14));
 }
 
 function resetViewPosition(frame: HTMLElement | null) {
@@ -633,7 +575,35 @@ export function App() {
       recipeId: selectedRecipeId,
       sessionId: activeSession?.sessionId
     });
-  }, [activeSession, selectedRecipeId]);
+
+    if (!alertProfile.audioEnabled || !runtimeFrame?.currentPhase) {
+      return;
+    }
+
+    if (
+      (lastSessionEvent.type === 'started' ||
+        lastSessionEvent.type === 'phase_wait_confirmed') &&
+      runtimeFrame.currentPhase.timerMode !== 'manual' &&
+      !sessionAudio.phaseHasImmediateCue(runtimeFrame.currentPhase)
+    ) {
+      const toneKinds = [
+        sessionAudio.resolvePhaseStartToneKind(runtimeFrame.currentPhase)
+      ] as const;
+
+      sessionAudio.playToneSequence(toneKinds);
+      logDebugEvent({
+        category: 'runtime',
+        event: 'audio_emitted',
+        detail: {
+          source: `session_event_${lastSessionEvent.type}`,
+          toneKinds,
+          phaseLabel: runtimeFrame.currentPhase.label
+        },
+        recipeId: selectedRecipeId,
+        sessionId: activeSession?.sessionId
+      });
+    }
+  }, [activeSession, alertProfile.audioEnabled, runtimeFrame, selectedRecipeId]);
 
   useEffect(() => {
     if (!runtimeFrame || !activeSession) {
@@ -661,6 +631,14 @@ export function App() {
     }
 
     const nextPhaseLabel = runtimeFrame.currentPhase?.label ?? 'Next step';
+    const previousPhaseIndex = Number.parseInt(previousSignature.split(':').at(-1) ?? '', 10);
+    const previousPhase =
+      Number.isFinite(previousPhaseIndex) &&
+      previousSignature.startsWith(`${activeSession.sessionId}:`)
+        ? livePlan.phaseList[previousPhaseIndex] ?? null
+        : null;
+    const shouldGateNextPhase =
+      runtimeFrame.currentPhase?.timerMode === 'manual' || preferences.phaseConfirmationEnabled;
 
     logDebugEvent({
       category: 'runtime',
@@ -673,7 +651,33 @@ export function App() {
       sessionId: activeSession.sessionId
     });
 
-    if (runtimeFrame.currentPhase?.timerMode === 'manual' || preferences.phaseConfirmationEnabled) {
+    if (alertProfile.audioEnabled) {
+      const toneKinds = sessionAudio.buildPhaseTransitionToneKinds(
+        previousPhase,
+        runtimeFrame.currentPhase,
+        {
+          includeStartTone: !shouldGateNextPhase
+        },
+      );
+
+      if (toneKinds.length > 0) {
+        sessionAudio.playToneSequence(toneKinds);
+        logDebugEvent({
+          category: 'runtime',
+          event: 'audio_emitted',
+          detail: {
+            source: 'phase_changed',
+            toneKinds,
+            previousPhaseLabel: previousPhase?.label,
+            nextPhaseLabel: runtimeFrame.currentPhase?.label
+          },
+          recipeId: selectedRecipeId,
+          sessionId: activeSession.sessionId
+        });
+      }
+    }
+
+    if (shouldGateNextPhase) {
       logUiEvent('phase_wait_requested', {
         phaseIndex: runtimeFrame.phaseIndex,
         phaseLabel: nextPhaseLabel,
@@ -721,7 +725,21 @@ export function App() {
     }
 
     if (exactCue && alertProfile.audioEnabled) {
-      playTone('cue');
+      const toneKinds = [sessionAudio.resolveCueToneKind(exactCue)] as const;
+
+      sessionAudio.playToneSequence(toneKinds);
+      logDebugEvent({
+        category: 'runtime',
+        event: 'audio_emitted',
+        detail: {
+          source: 'cue_emitted',
+          toneKinds,
+          cueId: exactCue.id,
+          cueLabel: exactCue.label
+        },
+        recipeId: selectedRecipeId,
+        sessionId: activeSession.sessionId
+      });
     }
 
     if (exactCue) {
@@ -1152,7 +1170,7 @@ export function App() {
         return;
       }
 
-      playTone('button');
+      sessionAudio.playToneSequence(['button']);
     }
 
     document.addEventListener('click', handleDocumentClick, true);

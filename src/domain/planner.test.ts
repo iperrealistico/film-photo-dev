@@ -323,6 +323,8 @@ describe('session planning', () => {
     );
 
     expect(plan.phaseList[0]?.durationSec).toBe(360);
+    expect(plan.phaseList[1]?.label).toBe('Drain monobath');
+    expect(plan.phaseList[1]?.durationSec).toBe(10);
     expect(plan.blockingIssues).toHaveLength(0);
     expect(plan.calculationLines.some((line) => line.label === 'Matrix result')).toBe(true);
   });
@@ -392,13 +394,38 @@ describe('session planning', () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList.slice(1).every((phase) => phase.timerMode === 'manual')).toBe(true);
-    expect(plan.phaseList.slice(1).map((phase) => phase.label)).toEqual([
+    expect(plan.phaseList[1]?.label).toBe('Drain monobath');
+    expect(plan.phaseList[1]?.timerMode).toBe('countdown');
+    expect(plan.phaseList.slice(2).every((phase) => phase.timerMode === 'manual')).toBe(true);
+    expect(plan.phaseList.slice(2).map((phase) => phase.label)).toEqual([
       'Minimal wash · 5 inversions',
       'Minimal wash · 10 inversions',
       'Minimal wash · 20 inversions',
       'Final rinse'
     ]);
+  });
+
+  it('uses the configured DF96 drain handoff before the wash sequence', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
+
+    if (!recipe) {
+      throw new Error('Missing DF96 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        drainSec: 20
+      },
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.phaseList[1]?.label).toBe('Drain monobath');
+    expect(plan.phaseList[1]?.durationSec).toBe(20);
+    expect(plan.calculationLines.find((line) => line.label === 'Drain before wash')?.value).toBe(
+      '0:20',
+    );
   });
 
   it('normalizes legacy DF96 presets into the official matrix-backed fields', () => {
@@ -418,6 +445,7 @@ describe('session planning', () => {
     expect(normalized.filmStock).toBe('tri_x');
     expect(normalized.agitationMode).toBe('minimal');
     expect(normalized.temperatureF).toBe('70');
+    expect(normalized.drainSec).toBe(10);
     expect(normalized.extraProcessSec).toBe(60);
   });
 });

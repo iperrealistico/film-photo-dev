@@ -1,6 +1,8 @@
 import { recipes } from '../data/recipes';
 import {
   DF96_ARCHIVAL_NOTE,
+  DF96_DRAIN_DEFAULT_SEC,
+  DF96_DRAIN_NOTE,
   DF96_EXHAUSTION_NOTE,
   DF96_LIFESPAN_NOTE,
   DF96_MAX_REUSE_TIME_SEC,
@@ -1143,11 +1145,21 @@ function buildDf96AgitationCues(
 
 function buildDf96WashPhases(
   washMode: string,
+  drainSec: number,
   washSec: number,
   warningLeadSec: number,
 ): PhaseDefinition[] {
+  const drainPhase = buildPhase(
+    'drain-monobath',
+    'Drain monobath',
+    'drain',
+    drainSec,
+    DF96_DRAIN_NOTE,
+  );
+
   if (washMode === 'minimal') {
     return [
+      drainPhase,
       buildPhase(
         'wash-minimal-1',
         'Minimal wash · 5 inversions',
@@ -1188,6 +1200,7 @@ function buildDf96WashPhases(
   }
 
   return [
+    drainPhase,
     buildPhase(
       'wash',
       'Wash',
@@ -1259,6 +1272,7 @@ function planDf96(
   const processedUnits = getDf96ProcessedUnits(values, chemistryState);
   const extraProcessSec = Math.max(0, getNumber(values, 'extraProcessSec'));
   const washMode = getString(values, 'washMode');
+  const drainSec = Math.max(1, getNumber(values, 'drainSec') || DF96_DRAIN_DEFAULT_SEC);
   const washSec = Math.max(
     60,
     getNumber(values, 'washSec') || DF96_STANDARD_WASH_DEFAULT_SEC,
@@ -1293,7 +1307,10 @@ function planDf96(
     `${agitationLabel}: ${agitationDetail}`,
     buildDf96AgitationCues('monobath', developSec, agitationMode, warningLeadSec),
   );
-  const phaseList = [monobathPhase, ...buildDf96WashPhases(washMode, washSec, warningLeadSec)];
+  const phaseList = [
+    monobathPhase,
+    ...buildDf96WashPhases(washMode, drainSec, washSec, warningLeadSec)
+  ];
 
   const calculationTrace: CalculationTraceEntry[] = [
     makeTraceEntry(
@@ -1364,6 +1381,13 @@ function planDf96(
       'CineStill Df96 wash guidance',
       washMode === 'minimal' ? DF96_MINIMAL_WASH_NOTE : DF96_STANDARD_WASH_NOTE,
       'source',
+    ),
+    makeTraceEntry(
+      'Drain before wash',
+      formatClock(drainSec),
+      'User-configurable DF96 handoff',
+      DF96_DRAIN_NOTE,
+      'manual',
     )
   ];
 
@@ -1450,6 +1474,10 @@ function planDf96(
         label: 'Final monobath time',
         value: formatClock(developSec),
         emphasis: 'strong'
+      },
+      {
+        label: 'Drain before wash',
+        value: formatClock(drainSec)
       },
       {
         label: 'Wash flow',
@@ -1576,6 +1604,12 @@ export function normalizeInputState(
       Number.isFinite(currentWashSec) && currentWashSec > 0
         ? currentWashSec
         : DF96_STANDARD_WASH_DEFAULT_SEC;
+
+    const currentDrainSec = Number(normalized.drainSec);
+    normalized.drainSec =
+      Number.isFinite(currentDrainSec) && currentDrainSec > 0
+        ? currentDrainSec
+        : DF96_DRAIN_DEFAULT_SEC;
 
     const currentExtraProcessSec = Number(normalized.extraProcessSec);
     normalized.extraProcessSec =

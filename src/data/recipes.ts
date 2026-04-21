@@ -5,6 +5,7 @@ import type {
   SelectOption
 } from '../domain/types';
 import {
+  DF96_DRAIN_DEFAULT_SEC,
   df96AgitationOptions,
   df96Films,
   DF96_UNIT_HELPER_TEXT,
@@ -600,6 +601,18 @@ export const recipes: RecipeDefinition[] = [
           label: mode.label,
           description: mode.summary
         }))
+      },
+      {
+        id: 'drainSec',
+        label: 'Drain before wash',
+        type: 'number',
+        section: 'workflow',
+        unit: 'sec',
+        helperText: 'Reserve a short handoff to empty the DF96 monobath before the wash begins.',
+        min: 5,
+        max: 30,
+        step: 5,
+        defaultValue: DF96_DRAIN_DEFAULT_SEC
       },
       {
         id: 'washSec',
