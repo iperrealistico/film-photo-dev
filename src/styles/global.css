@@ -329,17 +329,38 @@ button {
 }
 
 .setup-warning-banner {
-  position: sticky;
+  position: fixed;
   top: calc(env(safe-area-inset-top) + 5.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 2rem), calc(var(--app-frame-max) - 2rem));
   z-index: 7;
 }
 
 .setup-warning-banner .capacity-banner {
-  background: rgba(58, 28, 26, 0.96);
+  background: rgba(58, 28, 26, 0.985);
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(10px);
+}
+
+.setup-warning-banner__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem 1rem;
+}
+
+.setup-warning-banner__header .panel-heading {
+  flex: 1 1 18rem;
+}
+
+.setup-warning-banner__dismiss {
+  min-height: 3rem;
+  padding-inline: 1rem;
+  align-self: flex-start;
 }
 
 .app-meta {

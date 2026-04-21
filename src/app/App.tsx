@@ -280,6 +280,7 @@ export function App() {
   const [toast, setToast] = useState('');
   const [screenTransitionDirection, setScreenTransitionDirection] =
     useState<ScreenTransitionDirection>('lateral');
+  const [setupWarningIgnored, setSetupWarningIgnored] = useState(false);
   const lastCueRef = useRef('');
   const lastPhaseRef = useRef('');
   const lastSessionEventRef = useRef('');
@@ -348,6 +349,10 @@ export function App() {
   const topbarBackLabel = backTarget ? 'Back' : 'Home';
   const showBackButton = backTarget !== null;
   const showAboutLink = screen !== 'about';
+  const showSetupWarningBanner =
+    screen === 'setup' &&
+    draftPlan.blockingIssues.length > 0 &&
+    !setupWarningIgnored;
 
   function logUiEvent(event: string, detail?: unknown) {
     logDebugEvent({
@@ -763,6 +768,7 @@ export function App() {
       inputId,
       value
     });
+    setSetupWarningIgnored(false);
     setDrafts((current) => ({
       ...current,
       [selectedRecipeId]: {
@@ -774,6 +780,7 @@ export function App() {
 
   function handleSelectRecipe(recipeId: string) {
     logUiEvent('recipe_selected', { recipeId });
+    setSetupWarningIgnored(false);
     startTransition(() => {
       setScreenTransitionDirection('forward');
       setSelectedRecipeId(recipeId);
@@ -839,6 +846,7 @@ export function App() {
       presetId,
       recipeId: preset.recipeId
     });
+    setSetupWarningIgnored(false);
     startTransition(() => {
       setScreenTransitionDirection('forward');
       setSelectedRecipeId(preset.recipeId);
@@ -1320,21 +1328,35 @@ export function App() {
 
             {screen === 'setup' ? (
               <section className="stack">
-                {draftPlan.blockingIssues.length > 0 ? (
+                {showSetupWarningBanner ? (
                   <section
                     className="setup-warning-banner"
                     aria-label="Setup issues"
                     aria-live="polite"
                   >
                     <div className="capacity-banner capacity-danger stack">
-                      <div className="panel-heading panel-heading--tight">
-                        <h3>
-                          <span className="title-with-icon title-with-icon--compact">
-                            <WarningIcon aria-hidden="true" />
-                            <span>Unsupported right now</span>
-                          </span>
-                        </h3>
-                        <p>This combination does not match the official source data yet.</p>
+                      <div className="setup-warning-banner__header">
+                        <div className="panel-heading panel-heading--tight">
+                          <h3>
+                            <span className="title-with-icon title-with-icon--compact">
+                              <WarningIcon aria-hidden="true" />
+                              <span>Unsupported right now</span>
+                            </span>
+                          </h3>
+                          <p>This combination does not match the official source data yet.</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="chip-button setup-warning-banner__dismiss"
+                          onClick={() => {
+                            logUiEvent('setup_warning_ignored', {
+                              blockingIssues: draftPlan.blockingIssues
+                            });
+                            setSetupWarningIgnored(true);
+                          }}
+                        >
+                          Ignore
+                        </button>
                       </div>
                       <ul className="bullet-list">
                         {draftPlan.blockingIssues.map((issue) => (

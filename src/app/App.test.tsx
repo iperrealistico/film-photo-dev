@@ -332,6 +332,15 @@ describe('App', () => {
     expect(
       within(setupIssues).getByRole('heading', { name: /Unsupported right now/i }),
     ).toBeInTheDocument();
+    expect(within(setupIssues).getByRole('button', { name: /Ignore/i })).toBeInTheDocument();
+
+    await user.click(within(setupIssues).getByRole('button', { name: /Ignore/i }));
+
+    expect(screen.queryByRole('region', { name: /Setup issues/i })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/Monobath temperature/i), '70');
+
+    expect(screen.getByRole('region', { name: /Setup issues/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Review plan/i }));
 
