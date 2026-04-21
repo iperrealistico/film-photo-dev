@@ -328,22 +328,18 @@ button {
   gap: 1.35rem;
 }
 
-.setup-warning-flyover {
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + clamp(5.5rem, 11vw, 6.8rem));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 2rem), calc(var(--app-frame-max) - 2rem));
-  z-index: 8;
-  pointer-events: none;
+.setup-warning-banner {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 5.75rem);
+  z-index: 7;
 }
 
-.setup-warning-flyover .capacity-banner {
-  pointer-events: auto;
+.setup-warning-banner .capacity-banner {
+  background: rgba(58, 28, 26, 0.96);
   box-shadow:
-    0 20px 52px rgba(0, 0, 0, 0.34),
+    0 16px 36px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
 }
 
 .app-meta {
@@ -1503,7 +1499,7 @@ button {
   box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.14), 0 18px 60px rgba(0, 0, 0, 0.88);
 }
 
-.app-shell.is-ultrared .setup-warning-flyover .capacity-banner {
+.app-shell.is-ultrared .setup-warning-banner .capacity-banner {
   box-shadow:
     0 0 0 1px rgba(255, 0, 0, 0.14),
     0 18px 60px rgba(0, 0, 0, 0.88);

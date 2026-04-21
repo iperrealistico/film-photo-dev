@@ -349,7 +349,7 @@ describe('App', () => {
 
     expect(
       screen.getByText(
-        /Pick the film row that best matches the official Df96 chart\./i,
+        /Choose the exact film family from the official Df96 chart\./i,
       ),
     ).toBeInTheDocument();
 

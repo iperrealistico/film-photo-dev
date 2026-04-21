@@ -1322,7 +1322,7 @@ export function App() {
               <section className="stack">
                 {draftPlan.blockingIssues.length > 0 ? (
                   <section
-                    className="setup-warning-flyover"
+                    className="setup-warning-banner"
                     aria-label="Setup issues"
                     aria-live="polite"
                   >
