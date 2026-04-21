@@ -1328,44 +1328,6 @@ export function App() {
 
             {screen === 'setup' ? (
               <section className="stack">
-                {showSetupWarningBanner ? (
-                  <section
-                    className="setup-warning-banner"
-                    aria-label="Setup issues"
-                    aria-live="polite"
-                  >
-                    <div className="capacity-banner capacity-danger stack">
-                      <div className="setup-warning-banner__header">
-                        <div className="panel-heading panel-heading--tight">
-                          <h3>
-                            <span className="title-with-icon title-with-icon--compact">
-                              <WarningIcon aria-hidden="true" />
-                              <span>Unsupported right now</span>
-                            </span>
-                          </h3>
-                          <p>This combination does not match the official source data yet.</p>
-                        </div>
-                        <button
-                          type="button"
-                          className="chip-button setup-warning-banner__dismiss"
-                          onClick={() => {
-                            logUiEvent('setup_warning_ignored', {
-                              blockingIssues: draftPlan.blockingIssues
-                            });
-                            setSetupWarningIgnored(true);
-                          }}
-                        >
-                          Ignore
-                        </button>
-                      </div>
-                      <ul className="bullet-list">
-                        {draftPlan.blockingIssues.map((issue) => (
-                          <li key={issue}>{issue}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </section>
-                ) : null}
                 <SetupForm
                   recipe={selectedRecipe}
                   plan={draftPlan}
@@ -1394,6 +1356,9 @@ export function App() {
                     </span>
                   </button>
                 </div>
+                {showSetupWarningBanner ? (
+                  <div className="setup-warning-dock-spacer" aria-hidden="true" />
+                ) : null}
               </section>
             ) : null}
 
@@ -1521,6 +1486,47 @@ export function App() {
             </footer>
           ) : null}
         </div>
+
+        {showSetupWarningBanner ? (
+          <section
+            className="setup-warning-dock"
+            aria-label="Setup issues"
+            aria-live="polite"
+          >
+            <div className="setup-warning-dock__surface">
+              <div className="setup-warning-dock__inner">
+                <div className="setup-warning-dock__header">
+                  <div className="panel-heading panel-heading--tight">
+                    <h3>
+                      <span className="title-with-icon title-with-icon--compact">
+                        <WarningIcon aria-hidden="true" />
+                        <span>Unsupported right now</span>
+                      </span>
+                    </h3>
+                    <p>This combination does not match the official source data yet.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="chip-button setup-warning-dock__dismiss"
+                    onClick={() => {
+                      logUiEvent('setup_warning_ignored', {
+                        blockingIssues: draftPlan.blockingIssues
+                      });
+                      setSetupWarningIgnored(true);
+                    }}
+                  >
+                    Ignore
+                  </button>
+                </div>
+                <ul className="bullet-list setup-warning-dock__issues">
+                  {draftPlan.blockingIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {screen !== 'session' ? (
           <nav className="bottom-nav">

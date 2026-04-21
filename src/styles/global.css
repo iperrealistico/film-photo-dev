@@ -54,6 +54,7 @@
   --motion-page: 300ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --app-frame-max: 880px;
+  --bottom-nav-stack-height: calc(5rem + env(safe-area-inset-bottom));
 }
 
 * {
@@ -328,39 +329,78 @@ button {
   gap: 1.35rem;
 }
 
-.setup-warning-banner {
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + 5.75rem);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 2rem), calc(var(--app-frame-max) - 2rem));
-  z-index: 7;
+@keyframes setup-warning-dock-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(100% + 1.5rem));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.setup-warning-banner .capacity-banner {
+.setup-warning-dock {
+  position: fixed;
+  inset-inline: 0;
+  bottom: var(--bottom-nav-stack-height);
+  z-index: 6;
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  pointer-events: none;
+  animation: setup-warning-dock-rise var(--motion-page) var(--motion-ease);
+}
+
+.setup-warning-dock__surface {
+  width: 100%;
+  padding: 0.85rem 1rem 0.95rem;
+  border-top: 1px solid var(--status-danger-border);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 18px 18px 0 0;
   background: rgba(58, 28, 26, 0.985);
   box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.28),
+    0 -16px 36px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
 }
 
-.setup-warning-banner__header {
+.setup-warning-dock__inner {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.setup-warning-dock__header {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.9rem 1rem;
+  gap: 0.75rem 1rem;
 }
 
-.setup-warning-banner__header .panel-heading {
+.setup-warning-dock__header .panel-heading {
   flex: 1 1 18rem;
 }
 
-.setup-warning-banner__dismiss {
-  min-height: 3rem;
+.setup-warning-dock__dismiss {
+  min-height: 2.8rem;
   padding-inline: 1rem;
   align-self: flex-start;
+}
+
+.setup-warning-dock__issues {
+  max-height: min(18vh, 5.5rem);
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.setup-warning-dock-spacer {
+  height: clamp(8rem, 22vh, 9.5rem);
 }
 
 .app-meta {
@@ -1520,10 +1560,10 @@ button {
   box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.14), 0 18px 60px rgba(0, 0, 0, 0.88);
 }
 
-.app-shell.is-ultrared .setup-warning-banner .capacity-banner {
+.app-shell.is-ultrared .setup-warning-dock__surface {
   box-shadow:
     0 0 0 1px rgba(255, 0, 0, 0.14),
-    0 18px 60px rgba(0, 0, 0, 0.88);
+    0 -18px 60px rgba(0, 0, 0, 0.88);
 }
 
 .app-shell.is-ultrared .bottom-nav {
