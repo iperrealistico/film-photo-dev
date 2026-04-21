@@ -1,13 +1,13 @@
-import type { CueEvent, PhaseDefinition } from '../domain/types';
+import type { CueEvent, PhaseDefinition } from "../domain/types";
 
 export type SessionToneKind =
-  | 'button'
-  | 'phase_start'
-  | 'phase_end'
-  | 'drain'
-  | 'fill'
-  | 'cue_soft'
-  | 'cue_strong';
+  | "button"
+  | "phase_start"
+  | "phase_end"
+  | "drain"
+  | "fill"
+  | "cue_soft"
+  | "cue_strong";
 
 interface ToneRecipe {
   attackSec: number;
@@ -21,88 +21,92 @@ interface ToneRecipe {
 
 const toneRecipes: Record<SessionToneKind, ToneRecipe> = {
   button: {
-    oscillatorType: 'sine',
+    oscillatorType: "sine",
     startFrequency: 1046.5,
     endFrequency: 880,
     durationSec: 0.09,
     attackSec: 0.01,
     releaseSec: 0.085,
-    peakGain: 0.012
+    peakGain: 0.012,
   },
   phase_start: {
-    oscillatorType: 'sine',
+    oscillatorType: "sine",
     startFrequency: 660,
     endFrequency: 988,
     durationSec: 0.12,
     attackSec: 0.012,
     releaseSec: 0.11,
-    peakGain: 0.016
+    peakGain: 0.016,
   },
   phase_end: {
-    oscillatorType: 'triangle',
+    oscillatorType: "triangle",
     startFrequency: 740,
     endFrequency: 440,
     durationSec: 0.14,
     attackSec: 0.015,
     releaseSec: 0.13,
-    peakGain: 0.015
+    peakGain: 0.015,
   },
   drain: {
-    oscillatorType: 'sawtooth',
+    oscillatorType: "sawtooth",
     startFrequency: 540,
     endFrequency: 320,
     durationSec: 0.16,
     attackSec: 0.015,
     releaseSec: 0.15,
-    peakGain: 0.013
+    peakGain: 0.013,
   },
   fill: {
-    oscillatorType: 'sine',
+    oscillatorType: "sine",
     startFrequency: 420,
     endFrequency: 760,
     durationSec: 0.17,
     attackSec: 0.015,
     releaseSec: 0.16,
-    peakGain: 0.014
+    peakGain: 0.014,
   },
   cue_soft: {
-    oscillatorType: 'triangle',
+    oscillatorType: "triangle",
     startFrequency: 880,
     endFrequency: 740,
     durationSec: 0.13,
     attackSec: 0.015,
     releaseSec: 0.13,
-    peakGain: 0.02
+    peakGain: 0.02,
   },
   cue_strong: {
-    oscillatorType: 'square',
+    oscillatorType: "square",
     startFrequency: 988,
     endFrequency: 784,
     durationSec: 0.16,
     attackSec: 0.012,
     releaseSec: 0.15,
-    peakGain: 0.018
-  }
+    peakGain: 0.018,
+  },
 };
 
 let sharedAudioContext: AudioContext | null = null;
 
 function getSharedAudioContext() {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  if (!('AudioContext' in window || 'webkitAudioContext' in window)) {
+  if (!("AudioContext" in window || "webkitAudioContext" in window)) {
     return null;
   }
 
-  if (sharedAudioContext && sharedAudioContext.state !== 'closed') {
+  if (sharedAudioContext && sharedAudioContext.state !== "closed") {
     return sharedAudioContext;
   }
 
-  const Context = window.AudioContext ?? (window as typeof window & {
-    webkitAudioContext: typeof AudioContext;
-  }).webkitAudioContext;
+  const Context =
+    window.AudioContext ??
+    (
+      window as typeof window & {
+        webkitAudioContext: typeof AudioContext;
+      }
+    ).webkitAudioContext;
   sharedAudioContext = new Context();
   return sharedAudioContext;
 }
@@ -124,8 +128,14 @@ function scheduleTone(
     startAt + recipe.durationSec,
   );
   gainNode.gain.setValueAtTime(0.0001, startAt);
-  gainNode.gain.exponentialRampToValueAtTime(recipe.peakGain, startAt + recipe.attackSec);
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + recipe.releaseSec);
+  gainNode.gain.exponentialRampToValueAtTime(
+    recipe.peakGain,
+    startAt + recipe.attackSec,
+  );
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.0001,
+    startAt + recipe.releaseSec,
+  );
 
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
@@ -146,7 +156,7 @@ export function playToneSequence(kinds: readonly SessionToneKind[]) {
     return;
   }
 
-  if (audioContext.state === 'suspended') {
+  if (audioContext.state === "suspended") {
     void audioContext.resume().catch(() => undefined);
   }
 
@@ -159,19 +169,23 @@ export function playToneSequence(kinds: readonly SessionToneKind[]) {
 }
 
 export function resolveCueToneKind(cue: CueEvent): SessionToneKind {
-  return cue.style === 'strong' ? 'cue_strong' : 'cue_soft';
+  return cue.style === "strong" ? "cue_strong" : "cue_soft";
+}
+
+export function resolveActiveCuePulseToneKind(cue: CueEvent): SessionToneKind {
+  return cue.style === "strong" ? "cue_soft" : resolveCueToneKind(cue);
 }
 
 export function resolvePhaseStartToneKind(
   phase: PhaseDefinition | null | undefined,
 ): SessionToneKind {
   switch (phase?.kind) {
-    case 'drain':
-      return 'drain';
-    case 'fill':
-      return 'fill';
+    case "drain":
+      return "drain";
+    case "fill":
+      return "fill";
     default:
-      return 'phase_start';
+      return "phase_start";
   }
 }
 
@@ -185,7 +199,7 @@ export function buildPhaseTransitionToneKinds(
   const kinds: SessionToneKind[] = [];
 
   if (previousPhase) {
-    kinds.push('phase_end');
+    kinds.push("phase_end");
   }
 
   if (options?.includeStartTone !== false && nextPhase) {
@@ -195,6 +209,8 @@ export function buildPhaseTransitionToneKinds(
   return kinds;
 }
 
-export function phaseHasImmediateCue(phase: PhaseDefinition | null | undefined) {
+export function phaseHasImmediateCue(
+  phase: PhaseDefinition | null | undefined,
+) {
   return Boolean(phase?.cueEvents.some((cue) => cue.atSec === 0));
 }

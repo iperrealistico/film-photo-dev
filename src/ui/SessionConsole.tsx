@@ -1,11 +1,11 @@
-import { formatDateTime, formatDuration } from '../domain/format';
+import { formatDateTime, formatDuration } from "../domain/format";
 import type {
   ActiveSessionState,
   ChemistryBatch,
   RecipeDefinition,
   RuntimeFrame,
-  SessionPlan
-} from '../domain/types';
+  SessionPlan,
+} from "../domain/types";
 import {
   BottleIcon,
   ClockIcon,
@@ -15,8 +15,8 @@ import {
   RefreshIcon,
   StopIcon,
   WarningIcon,
-  WorkflowIcon
-} from './icons';
+  WorkflowIcon,
+} from "./icons";
 
 interface SessionConsoleProps {
   recipe: RecipeDefinition;
@@ -36,9 +36,9 @@ interface SessionConsoleProps {
 
 function formatPhaseDurationLabel(
   durationSec: number,
-  timerMode: SessionPlan['phaseList'][number]['timerMode'],
+  timerMode: SessionPlan["phaseList"][number]["timerMode"],
 ) {
-  return timerMode === 'manual' ? 'Manual' : formatDuration(durationSec);
+  return timerMode === "manual" ? "Manual" : formatDuration(durationSec);
 }
 
 export function SessionConsole({
@@ -54,17 +54,23 @@ export function SessionConsole({
   onAbort,
   onReset,
   onLogBatch,
-  lastLoggedBatch
+  lastLoggedBatch,
 }: SessionConsoleProps) {
   const upcomingPhases = frame.currentPhase
     ? plan.phaseList.slice(frame.phaseIndex + 1, frame.phaseIndex + 4)
     : plan.phaseList.slice(-3);
-  const isAwaitingPhaseStart = state.status === 'awaiting_phase_start';
-  const isManualPhase = frame.currentPhase?.timerMode === 'manual';
-  const nextPhaseLabel = frame.currentPhase?.label ?? 'Next step';
+  const isAwaitingPhaseStart = state.status === "awaiting_phase_start";
+  const isManualPhase = frame.currentPhase?.timerMode === "manual";
+  const nextPhaseLabel = frame.currentPhase?.label ?? "Next step";
 
   const isCompletionState =
-    state.status === 'completed' || state.status === 'aborted' || frame.completed;
+    state.status === "completed" ||
+    state.status === "aborted" ||
+    frame.completed;
+  const activeCueSummary =
+    frame.activeCue && frame.activeCueRemainingSec !== null
+      ? `${frame.activeCue.label} · ${frame.activeCueRemainingSec}s left`
+      : null;
 
   return (
     <section className="stack session-layout">
@@ -76,15 +82,19 @@ export function SessionConsole({
               <span>Darkroom mode</span>
             </span>
           </p>
-          <strong className="session-banner__title">{recipe.developerLabel}</strong>
+          <strong className="session-banner__title">
+            {recipe.developerLabel}
+          </strong>
         </div>
         <div className="session-banner__meta">
           <span className="session-banner__source">{plan.sourceSummary}</span>
-          <strong className="session-banner__duration">{formatDuration(plan.totalDurationSec)}</strong>
+          <strong className="session-banner__duration">
+            {formatDuration(plan.totalDurationSec)}
+          </strong>
         </div>
       </div>
 
-      {state.status === 'recovering' ? (
+      {state.status === "recovering" ? (
         <section className="panel recovery-panel">
           <p className="eyebrow">Recovery</p>
           <h2>
@@ -95,17 +105,25 @@ export function SessionConsole({
           </h2>
           <p>{state.recoveryNote}</p>
           <p>
-            Timing uncertainty: {Math.round(state.uncertaintyMs / 1000)} sec. Check
-            the timer before you continue.
+            Timing uncertainty: {Math.round(state.uncertaintyMs / 1000)} sec.
+            Check the timer before you continue.
           </p>
           <div className="action-row">
-            <button type="button" className="secondary-button" onClick={onAbort}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onAbort}
+            >
               <span className="button-label">
                 <StopIcon aria-hidden="true" />
                 <span>End session</span>
               </span>
             </button>
-            <button type="button" className="primary-button" onClick={onConfirmRecovery}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={onConfirmRecovery}
+            >
               <span className="button-label">
                 <PlayIcon aria-hidden="true" />
                 <span>Continue</span>
@@ -119,16 +137,16 @@ export function SessionConsole({
         <div className="session-hero__phase">
           <span className={`tone-chip tone-chip--${recipe.accentTone}`}>
             {isCompletionState
-              ? 'Completed'
+              ? "Completed"
               : isAwaitingPhaseStart
-                ? 'Ready check'
-                : frame.currentPhase?.label ?? 'Ready'}
+                ? "Ready check"
+                : (frame.currentPhase?.label ?? "Ready")}
           </span>
           <h1>
             {isCompletionState
-              ? state.status === 'aborted'
-                ? 'Session stopped'
-                : 'Session complete'
+              ? state.status === "aborted"
+                ? "Session stopped"
+                : "Session complete"
               : isAwaitingPhaseStart
                 ? `Ready for ${nextPhaseLabel}?`
                 : formatPhaseDurationLabel(
@@ -138,28 +156,30 @@ export function SessionConsole({
           </h1>
           <p>
             {isCompletionState
-              ? state.status === 'aborted'
-                ? 'This session ended early. Reset before you begin another run.'
-                : 'Review the summary and save the chemistry log if you want.'
+              ? state.status === "aborted"
+                ? "This session ended early. Reset before you begin another run."
+                : "Review the summary and save the chemistry log if you want."
               : isAwaitingPhaseStart
                 ? isManualPhase
-                  ? 'This step is manual on purpose. Complete it only after you finish the physical rinse or wash action.'
-                  : 'The previous phase has finished. Start the next timer only when the tank and chemistry are ready.'
+                  ? "This step is manual on purpose. Complete it only after you finish the physical rinse or wash action."
+                  : "The previous phase has finished. Start the next timer only when the tank and chemistry are ready."
                 : frame.currentPhase?.detail}
           </p>
         </div>
         <div className="session-hero__cue">
-          <span>Up next</span>
+          <span>{activeCueSummary ? "Right now" : "Up next"}</span>
           <strong>
             {isCompletionState
-              ? 'None'
+              ? "None"
               : isAwaitingPhaseStart
                 ? `${nextPhaseLabel} is waiting to begin`
-              : frame.nextCue
-                ? `${frame.nextCue.label} in ${frame.nextCueInSec ?? 0}s`
-                : isManualPhase
-                  ? 'Manual step in progress'
-                  : 'No more cues in this step'}
+                : activeCueSummary
+                  ? activeCueSummary
+                  : frame.nextCue
+                    ? `${frame.nextCue.label} in ${frame.nextCueInSec ?? 0}s`
+                    : isManualPhase
+                      ? "Manual step in progress"
+                      : "No more cues in this step"}
           </strong>
           {!isCompletionState ? (
             <p>
@@ -176,11 +196,13 @@ export function SessionConsole({
       {isAwaitingPhaseStart ? (
         <section className="panel stack runtime-gate-panel">
           <p className="eyebrow">Next step paused</p>
-          <h2 className="runtime-gate-panel__title">{nextPhaseLabel} is ready when you are.</h2>
+          <h2 className="runtime-gate-panel__title">
+            {nextPhaseLabel} is ready when you are.
+          </h2>
           <p>
             {isManualPhase
-              ? 'Tap the large button after you physically finish this instruction step.'
-              : 'Tap the large button only when you want the next countdown to begin for real.'}
+              ? "Tap the large button after you physically finish this instruction step."
+              : "Tap the large button only when you want the next countdown to begin for real."}
           </p>
           <div className="action-row">
             <button
@@ -190,10 +212,16 @@ export function SessionConsole({
             >
               <span className="button-label">
                 <PlayIcon aria-hidden="true" />
-                <span>{isManualPhase ? 'Complete this step' : 'Begin next step'}</span>
+                <span>
+                  {isManualPhase ? "Complete this step" : "Begin next step"}
+                </span>
               </span>
             </button>
-            <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
+            <button
+              type="button"
+              className="secondary-button runtime-button"
+              onClick={onAbort}
+            >
               <span className="button-label">
                 <StopIcon aria-hidden="true" />
                 <span>End session</span>
@@ -206,29 +234,45 @@ export function SessionConsole({
       {!isCompletionState ? (
         !isAwaitingPhaseStart ? (
           <div className="runtime-controls">
-            {state.status === 'ready' ? (
-              <button type="button" className="primary-button runtime-button" onClick={onStart}>
+            {state.status === "ready" ? (
+              <button
+                type="button"
+                className="primary-button runtime-button"
+                onClick={onStart}
+              >
                 <span className="button-label">
                   <PlayIcon aria-hidden="true" />
                   <span>Start timer</span>
                 </span>
               </button>
-            ) : state.status === 'paused' ? (
-              <button type="button" className="primary-button runtime-button" onClick={onResume}>
+            ) : state.status === "paused" ? (
+              <button
+                type="button"
+                className="primary-button runtime-button"
+                onClick={onResume}
+              >
                 <span className="button-label">
                   <PlayIcon aria-hidden="true" />
                   <span>Resume timer</span>
                 </span>
               </button>
             ) : (
-              <button type="button" className="primary-button runtime-button" onClick={onPause}>
+              <button
+                type="button"
+                className="primary-button runtime-button"
+                onClick={onPause}
+              >
                 <span className="button-label">
                   <PauseIcon aria-hidden="true" />
                   <span>Pause timer</span>
                 </span>
               </button>
             )}
-            <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
+            <button
+              type="button"
+              className="secondary-button runtime-button"
+              onClick={onAbort}
+            >
               <span className="button-label">
                 <StopIcon aria-hidden="true" />
                 <span>End session</span>
@@ -244,8 +288,12 @@ export function SessionConsole({
               <span>New session</span>
             </span>
           </button>
-          {state.status !== 'aborted' ? (
-            <button type="button" className="primary-button" onClick={onLogBatch}>
+          {state.status !== "aborted" ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={onLogBatch}
+            >
               <span className="button-label">
                 <BottleIcon aria-hidden="true" />
                 <span>Save chemistry log</span>
@@ -264,15 +312,18 @@ export function SessionConsole({
                 <span>Upcoming steps</span>
               </span>
             </h3>
-            <p>Keep the current step and the next few steps in view during the session.</p>
+            <p>
+              Keep the current step and the next few steps in view during the
+              session.
+            </p>
           </div>
           <div className="stack compact-stack">
             {frame.currentPhase ? (
               <div className="phase-pill is-current">
                 <strong>{frame.currentPhase.label}</strong>
                 <span>
-                  {frame.currentPhase.timerMode === 'manual'
-                    ? 'Manual step'
+                  {frame.currentPhase.timerMode === "manual"
+                    ? "Manual step"
                     : `${formatDuration(frame.remainingInPhaseSec)} left`}
                 </span>
               </div>
@@ -280,7 +331,9 @@ export function SessionConsole({
             {upcomingPhases.map((phase) => (
               <div key={phase.id} className="phase-pill">
                 <strong>{phase.label}</strong>
-                <span>{formatPhaseDurationLabel(phase.durationSec, phase.timerMode)}</span>
+                <span>
+                  {formatPhaseDurationLabel(phase.durationSec, phase.timerMode)}
+                </span>
               </div>
             ))}
           </div>
@@ -294,12 +347,14 @@ export function SessionConsole({
                 <span>Session log</span>
               </span>
             </h3>
-            <p>A local event history helps with recovery and troubleshooting.</p>
+            <p>
+              A local event history helps with recovery and troubleshooting.
+            </p>
           </div>
           <div className="event-log">
             {state.eventLog.slice(-6).map((event) => (
               <div key={event.id} className="event-row">
-                <strong>{event.type.replaceAll('_', ' ')}</strong>
+                <strong>{event.type.replaceAll("_", " ")}</strong>
                 <span>{formatDateTime(event.at)}</span>
                 <p>{event.detail}</p>
               </div>
@@ -328,16 +383,18 @@ export function SessionConsole({
               <span>Last used</span>
               <strong>{formatDateTime(lastLoggedBatch.lastUsedAt)}</strong>
             </div>
-            {typeof lastLoggedBatch.processedUnits === 'number' ? (
+            {typeof lastLoggedBatch.processedUnits === "number" ? (
               <div className="fact-row">
                 <span>Prior units logged</span>
                 <strong>{lastLoggedBatch.processedUnits}</strong>
               </div>
             ) : null}
-            {typeof lastLoggedBatch.suggestedMinimumTimeSec === 'number' ? (
+            {typeof lastLoggedBatch.suggestedMinimumTimeSec === "number" ? (
               <div className="fact-row">
                 <span>Saved minimum time</span>
-                <strong>{formatDuration(lastLoggedBatch.suggestedMinimumTimeSec)}</strong>
+                <strong>
+                  {formatDuration(lastLoggedBatch.suggestedMinimumTimeSec)}
+                </strong>
               </div>
             ) : null}
           </div>

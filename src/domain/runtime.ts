@@ -3,26 +3,26 @@ import type {
   RuntimeFrame,
   SessionEvent,
   SessionPlan,
-  SessionStatus
-} from './types';
+  SessionStatus,
+} from "./types";
 
-function createEvent(type: SessionEvent['type'], detail: string): SessionEvent {
+function createEvent(type: SessionEvent["type"], detail: string): SessionEvent {
   return {
     id: `${type}-${Math.random().toString(36).slice(2, 9)}`,
     type,
     detail,
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
   };
 }
 
 function appendEvent(
   state: ActiveSessionState,
-  type: SessionEvent['type'],
+  type: SessionEvent["type"],
   detail: string,
 ): ActiveSessionState {
   return {
     ...state,
-    eventLog: [...state.eventLog, createEvent(type, detail)]
+    eventLog: [...state.eventLog, createEvent(type, detail)],
   };
 }
 
@@ -30,16 +30,18 @@ export function createActiveSession(plan: SessionPlan, nowMs: number) {
   return {
     sessionId: `session-${Math.random().toString(36).slice(2, 10)}`,
     planId: plan.id,
-    status: 'ready' as SessionStatus,
+    status: "ready" as SessionStatus,
     startEpochMs: null,
     pauseStartedAtMs: null,
     totalPausedMs: 0,
     createdAtMs: nowMs,
     lastPersistedAtMs: nowMs,
     uncertaintyMs: 0,
-    resumeStatus: 'running' as const,
+    resumeStatus: "running" as const,
     completedManualPhaseIds: [],
-    eventLog: [createEvent('created', 'Session prepared from the review screen.')]
+    eventLog: [
+      createEvent("created", "Session prepared from the review screen."),
+    ],
   };
 }
 
@@ -49,25 +51,25 @@ export function hydrateActiveSession(
 ): ActiveSessionState {
   const hydratedBase = {
     ...snapshot,
-    completedManualPhaseIds: snapshot.completedManualPhaseIds ?? []
+    completedManualPhaseIds: snapshot.completedManualPhaseIds ?? [],
   };
 
-  if (snapshot.status === 'running' || snapshot.status === 'paused') {
+  if (snapshot.status === "running" || snapshot.status === "paused") {
     const uncertaintyMs = Math.max(0, nowMs - snapshot.lastPersistedAtMs);
 
     return appendEvent(
       {
         ...hydratedBase,
-        status: 'recovering',
+        status: "recovering",
         recoveryNote:
           uncertaintyMs > 15000
-            ? 'The app was away for a while. Check the timer before you continue.'
-            : 'Recovered a recent in-progress session.',
+            ? "The app was away for a while. Check the timer before you continue."
+            : "Recovered a recent in-progress session.",
         uncertaintyMs,
-        resumeStatus: snapshot.status
+        resumeStatus: snapshot.status,
       },
-      'recovery_needed',
-      'Recovered an in-progress session.',
+      "recovery_needed",
+      "Recovered an in-progress session.",
     );
   }
 
@@ -78,49 +80,51 @@ export function startSession(state: ActiveSessionState, nowMs: number) {
   return appendEvent(
     {
       ...state,
-      status: 'running',
+      status: "running",
       startEpochMs: nowMs,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'started',
-    'Timer started.',
+    "started",
+    "Timer started.",
   );
 }
 
 export function pauseSession(state: ActiveSessionState, nowMs: number) {
-  if (state.status !== 'running') {
+  if (state.status !== "running") {
     return state;
   }
 
   return appendEvent(
     {
       ...state,
-      status: 'paused',
+      status: "paused",
       pauseStartedAtMs: nowMs,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'paused',
-    'Timer paused.',
+    "paused",
+    "Timer paused.",
   );
 }
 
 export function resumeSession(state: ActiveSessionState, nowMs: number) {
-  if (state.status !== 'paused') {
+  if (state.status !== "paused") {
     return state;
   }
 
-  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+  const pauseDuration = state.pauseStartedAtMs
+    ? nowMs - state.pauseStartedAtMs
+    : 0;
 
   return appendEvent(
     {
       ...state,
-      status: 'running',
+      status: "running",
       pauseStartedAtMs: null,
       totalPausedMs: state.totalPausedMs + pauseDuration,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'resumed',
-    'Timer resumed.',
+    "resumed",
+    "Timer resumed.",
   );
 }
 
@@ -129,38 +133,44 @@ export function waitForPhaseConfirmation(
   nowMs: number,
   phaseLabel: string,
 ) {
-  if (state.status !== 'running') {
+  if (state.status !== "running") {
     return state;
   }
 
   return appendEvent(
     {
       ...state,
-      status: 'awaiting_phase_start',
+      status: "awaiting_phase_start",
       pauseStartedAtMs: nowMs,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'phase_wait_started',
+    "phase_wait_started",
     `${phaseLabel} is lined up. Waiting for manual confirmation to start the timer.`,
   );
 }
 
-export function confirmPhaseStart(state: ActiveSessionState, nowMs: number, phaseLabel: string) {
-  if (state.status !== 'awaiting_phase_start') {
+export function confirmPhaseStart(
+  state: ActiveSessionState,
+  nowMs: number,
+  phaseLabel: string,
+) {
+  if (state.status !== "awaiting_phase_start") {
     return state;
   }
 
-  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+  const pauseDuration = state.pauseStartedAtMs
+    ? nowMs - state.pauseStartedAtMs
+    : 0;
 
   return appendEvent(
     {
       ...state,
-      status: 'running',
+      status: "running",
       pauseStartedAtMs: null,
       totalPausedMs: state.totalPausedMs + pauseDuration,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'phase_wait_confirmed',
+    "phase_wait_confirmed",
     `${phaseLabel} started after manual confirmation.`,
   );
 }
@@ -171,11 +181,13 @@ export function completeManualPhase(
   phaseId: string,
   phaseLabel: string,
 ) {
-  if (state.status !== 'awaiting_phase_start') {
+  if (state.status !== "awaiting_phase_start") {
     return state;
   }
 
-  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+  const pauseDuration = state.pauseStartedAtMs
+    ? nowMs - state.pauseStartedAtMs
+    : 0;
   const completedManualPhaseIds = Array.from(
     new Set([...(state.completedManualPhaseIds ?? []), phaseId]),
   );
@@ -183,13 +195,13 @@ export function completeManualPhase(
   return appendEvent(
     {
       ...state,
-      status: 'running',
+      status: "running",
       pauseStartedAtMs: null,
       totalPausedMs: state.totalPausedMs + pauseDuration,
       completedManualPhaseIds,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'phase_wait_confirmed',
+    "phase_wait_confirmed",
     `${phaseLabel} completed after manual confirmation.`,
   );
 }
@@ -203,10 +215,10 @@ export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
       status: nextStatus,
       uncertaintyMs: 0,
       recoveryNote: undefined,
-      lastPersistedAtMs: nowMs
+      lastPersistedAtMs: nowMs,
     },
-    'recovery_confirmed',
-    'Recovery confirmed.',
+    "recovery_confirmed",
+    "Recovery confirmed.",
   );
 }
 
@@ -214,11 +226,11 @@ export function abortSession(state: ActiveSessionState, nowMs: number) {
   return appendEvent(
     {
       ...state,
-      status: 'aborted',
-      lastPersistedAtMs: nowMs
+      status: "aborted",
+      lastPersistedAtMs: nowMs,
     },
-    'aborted',
-    'Session ended early.',
+    "aborted",
+    "Session ended early.",
   );
 }
 
@@ -226,18 +238,18 @@ export function completeSession(state: ActiveSessionState, nowMs: number) {
   return appendEvent(
     {
       ...state,
-      status: 'completed',
-      lastPersistedAtMs: nowMs
+      status: "completed",
+      lastPersistedAtMs: nowMs,
     },
-    'completed',
-    'Session finished.',
+    "completed",
+    "Session finished.",
   );
 }
 
 export function markPersisted(state: ActiveSessionState, nowMs: number) {
   return {
     ...state,
-    lastPersistedAtMs: nowMs
+    lastPersistedAtMs: nowMs,
   };
 }
 
@@ -247,12 +259,30 @@ function getEffectiveElapsedMs(state: ActiveSessionState, nowMs: number) {
   }
 
   const activeNowMs =
-    (state.status === 'paused' || state.status === 'awaiting_phase_start') &&
+    (state.status === "paused" || state.status === "awaiting_phase_start") &&
     state.pauseStartedAtMs
       ? state.pauseStartedAtMs
       : nowMs;
 
   return Math.max(0, activeNowMs - state.startEpochMs - state.totalPausedMs);
+}
+
+function getActiveCue(
+  phase: SessionPlan["phaseList"][number],
+  elapsedInPhaseSec: number,
+) {
+  return (
+    [...phase.cueEvents].reverse().find((cue) => {
+      if (!cue.durationSec || cue.durationSec <= 0) {
+        return false;
+      }
+
+      return (
+        cue.atSec <= elapsedInPhaseSec &&
+        elapsedInPhaseSec < cue.atSec + cue.durationSec
+      );
+    }) ?? null
+  );
 }
 
 export function deriveRuntimeFrame(
@@ -267,7 +297,7 @@ export function deriveRuntimeFrame(
   for (let index = 0; index < plan.phaseList.length; index += 1) {
     const phase = plan.phaseList[index];
 
-    if (phase.timerMode === 'manual') {
+    if (phase.timerMode === "manual") {
       if (!completedManualPhaseIds.has(phase.id) && elapsedSec >= cursor) {
         return {
           phaseIndex: index,
@@ -275,9 +305,11 @@ export function deriveRuntimeFrame(
           elapsedInPhaseSec: 0,
           remainingInPhaseSec: 0,
           totalElapsedSec: elapsedSec,
+          activeCue: null,
+          activeCueRemainingSec: null,
           nextCue: null,
           nextCueInSec: null,
-          completed: false
+          completed: false,
         };
       }
 
@@ -289,9 +321,17 @@ export function deriveRuntimeFrame(
 
     if (elapsedSec < phaseEnd) {
       const elapsedInPhaseSec = Math.max(0, elapsedSec - phaseStart);
-      const remainingInPhaseSec = Math.max(0, phase.durationSec - elapsedInPhaseSec);
+      const remainingInPhaseSec = Math.max(
+        0,
+        phase.durationSec - elapsedInPhaseSec,
+      );
+      const activeCue = getActiveCue(phase, elapsedInPhaseSec);
       const nextCue =
-        phase.cueEvents.find((cue) => cue.atSec >= elapsedInPhaseSec) ?? null;
+        phase.cueEvents.find((cue) =>
+          activeCue
+            ? cue.atSec > elapsedInPhaseSec
+            : cue.atSec >= elapsedInPhaseSec,
+        ) ?? null;
 
       return {
         phaseIndex: index,
@@ -299,9 +339,20 @@ export function deriveRuntimeFrame(
         elapsedInPhaseSec,
         remainingInPhaseSec,
         totalElapsedSec: elapsedSec,
+        activeCue,
+        activeCueRemainingSec: activeCue
+          ? Math.max(
+              0,
+              activeCue.atSec +
+                (activeCue.durationSec ?? 0) -
+                elapsedInPhaseSec,
+            )
+          : null,
         nextCue,
-        nextCueInSec: nextCue ? Math.max(0, nextCue.atSec - elapsedInPhaseSec) : null,
-        completed: false
+        nextCueInSec: nextCue
+          ? Math.max(0, nextCue.atSec - elapsedInPhaseSec)
+          : null,
+        completed: false,
       };
     }
 
@@ -314,8 +365,10 @@ export function deriveRuntimeFrame(
     elapsedInPhaseSec: 0,
     remainingInPhaseSec: 0,
     totalElapsedSec: elapsedSec,
+    activeCue: null,
+    activeCueRemainingSec: null,
     nextCue: null,
     nextCueInSec: null,
-    completed: true
+    completed: true,
   };
 }

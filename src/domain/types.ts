@@ -1,53 +1,53 @@
-export type ProcessType = 'bw' | 'color';
-export type RecipeFamily = 'bw_concentrate' | 'color_kit' | 'monobath';
+export type ProcessType = "bw" | "color";
+export type RecipeFamily = "bw_concentrate" | "color_kit" | "monobath";
 export type SourceKind =
-  | 'official'
-  | 'manufacturer'
-  | 'curated'
-  | 'community'
-  | 'custom';
-export type ThemeMode = 'standard' | 'red_safe' | 'ultrared';
-export type MeasurementUnit = 'ml' | 'cc' | 'cl' | 'l';
-export type InputType = 'select' | 'number' | 'toggle';
-export type FieldSection = 'film' | 'chemistry' | 'workflow' | 'runtime';
+  | "official"
+  | "manufacturer"
+  | "curated"
+  | "community"
+  | "custom";
+export type ThemeMode = "standard" | "red_safe" | "ultrared";
+export type MeasurementUnit = "ml" | "cc" | "cl" | "l";
+export type InputType = "select" | "number" | "toggle";
+export type FieldSection = "film" | "chemistry" | "workflow" | "runtime";
 export type PhaseKind =
-  | 'developer'
-  | 'stop'
-  | 'blix'
-  | 'fix'
-  | 'wash'
-  | 'rinse'
-  | 'drain'
-  | 'fill'
-  | 'transition'
-  | 'wetting'
-  | 'reversal'
-  | 'instruction';
-export type CapacityStatus = 'ok' | 'limit' | 'danger';
+  | "developer"
+  | "stop"
+  | "blix"
+  | "fix"
+  | "wash"
+  | "rinse"
+  | "drain"
+  | "fill"
+  | "transition"
+  | "wetting"
+  | "reversal"
+  | "instruction";
+export type CapacityStatus = "ok" | "limit" | "danger";
 export type SessionStatus =
-  | 'ready'
-  | 'running'
-  | 'paused'
-  | 'awaiting_phase_start'
-  | 'recovering'
-  | 'completed'
-  | 'aborted';
+  | "ready"
+  | "running"
+  | "paused"
+  | "awaiting_phase_start"
+  | "recovering"
+  | "completed"
+  | "aborted";
 export type MixCalculatorMode =
-  | 'scale_kit'
-  | 'dilution_ratio'
-  | 'multi_part'
-  | 'use_what_i_have';
-export type DebugLogLevel = 'info' | 'warn' | 'error';
+  | "scale_kit"
+  | "dilution_ratio"
+  | "multi_part"
+  | "use_what_i_have";
+export type DebugLogLevel = "info" | "warn" | "error";
 export type DebugLogCategory =
-  | 'app'
-  | 'ui'
-  | 'planner'
-  | 'runtime'
-  | 'storage'
-  | 'lifecycle'
-  | 'pwa'
-  | 'diagnostics'
-  | 'error';
+  | "app"
+  | "ui"
+  | "planner"
+  | "runtime"
+  | "storage"
+  | "lifecycle"
+  | "pwa"
+  | "diagnostics"
+  | "error";
 
 export type RecipeInputValue = string | number | boolean;
 export type RecipeInputMap = Record<string, RecipeInputValue>;
@@ -138,17 +138,18 @@ export interface RecipeDefinition {
   processType: ProcessType;
   family: RecipeFamily;
   source: RecipeSource;
-  accentTone: 'amber' | 'ember' | 'red';
+  accentTone: "amber" | "ember" | "red";
   notes: string[];
   inputs: InputDefinition[];
-  plannerId: 'cs41' | 'hc110' | 'df96';
+  plannerId: "cs41" | "hc110" | "df96";
 }
 
 export interface CueEvent {
   id: string;
   atSec: number;
+  durationSec?: number;
   label: string;
-  style: 'soft' | 'strong';
+  style: "soft" | "strong";
 }
 
 export interface PhaseDefinition {
@@ -156,7 +157,7 @@ export interface PhaseDefinition {
   label: string;
   kind: PhaseKind;
   durationSec: number;
-  timerMode?: 'countdown' | 'manual';
+  timerMode?: "countdown" | "manual";
   detail: string;
   cueEvents: CueEvent[];
 }
@@ -164,7 +165,7 @@ export interface PhaseDefinition {
 export interface CalculationLine {
   label: string;
   value: string;
-  emphasis?: 'normal' | 'strong' | 'warn';
+  emphasis?: "normal" | "strong" | "warn";
 }
 
 export interface MixAmount {
@@ -179,7 +180,7 @@ export interface CalculationTraceEntry {
   value: string;
   source: string;
   detail?: string;
-  emphasis?: 'source' | 'derived' | 'manual' | 'warning';
+  emphasis?: "source" | "derived" | "manual" | "warning";
 }
 
 export interface CapacityCheck {
@@ -220,16 +221,16 @@ export interface SessionPlan {
 export interface SessionEvent {
   id: string;
   type:
-    | 'created'
-    | 'started'
-    | 'paused'
-    | 'resumed'
-    | 'phase_wait_started'
-    | 'phase_wait_confirmed'
-    | 'recovery_needed'
-    | 'recovery_confirmed'
-    | 'completed'
-    | 'aborted';
+    | "created"
+    | "started"
+    | "paused"
+    | "resumed"
+    | "phase_wait_started"
+    | "phase_wait_confirmed"
+    | "recovery_needed"
+    | "recovery_confirmed"
+    | "completed"
+    | "aborted";
   at: string;
   detail: string;
 }
@@ -244,7 +245,7 @@ export interface ActiveSessionState {
   createdAtMs: number;
   lastPersistedAtMs: number;
   uncertaintyMs: number;
-  resumeStatus: 'running' | 'paused';
+  resumeStatus: "running" | "paused";
   completedManualPhaseIds?: string[];
   recoveryNote?: string;
   eventLog: SessionEvent[];
@@ -256,6 +257,8 @@ export interface RuntimeFrame {
   elapsedInPhaseSec: number;
   remainingInPhaseSec: number;
   totalElapsedSec: number;
+  activeCue: CueEvent | null;
+  activeCueRemainingSec: number | null;
   nextCue: CueEvent | null;
   nextCueInSec: number | null;
   completed: boolean;
