@@ -4,6 +4,14 @@ import type {
   RecipeInputMap,
   SelectOption
 } from '../domain/types';
+import {
+  df96AgitationOptions,
+  df96Films,
+  df96WashModes,
+  getDf96FilmById,
+  getDf96MatrixCell,
+  type Df96AgitationMode
+} from './df96';
 
 const hc110FilmOptions: Array<{
   label: string;
@@ -65,6 +73,33 @@ const hc110FilmOptions: Array<{
 function getHc110SpeedOptions(values: RecipeInputMap) {
   const selected = hc110FilmOptions.find((film) => film.label === values.filmStock);
   return selected?.options ?? hc110FilmOptions[0].options;
+}
+
+function getDf96RatingOptions(values: RecipeInputMap) {
+  const selectedFilm = getDf96FilmById(String(values.filmStock ?? df96Films[0]?.id));
+
+  return selectedFilm.ratingOptions.map((option) => ({
+    value: option.id,
+    label: `${option.band === 'pull' ? 'Pull' : option.band === 'normal' ? 'Normal' : 'Push'} · ${option.isoLabel}`,
+    description: option.multiplierLabel
+      ? `${option.multiplierLabel} · ${option.notes?.[0] ?? 'Official Df96 chart entry'}`
+      : option.notes?.[0]
+  })) satisfies SelectOption[];
+}
+
+function getDf96TemperatureOptions(values: RecipeInputMap) {
+  const agitationMode = String(values.agitationMode ?? 'constant') as Df96AgitationMode;
+
+  return [65, 70, 75, 80, 85, 90, 95].map((temperatureF) => {
+    const cell = getDf96MatrixCell(temperatureF, agitationMode);
+
+    return {
+      value: String(temperatureF),
+      label: cell
+        ? `${temperatureF} F · ${cell.temperatureC} C · ${cell.outcomeLabel}`
+        : `${temperatureF} F`
+    } satisfies SelectOption;
+  });
 }
 
 export const recipes: RecipeDefinition[] = [
@@ -474,39 +509,95 @@ export const recipes: RecipeDefinition[] = [
     plannerId: 'df96',
     inputs: [
       {
-        id: 'filmName',
+        id: 'filmStock',
         label: 'Film',
         type: 'select',
         section: 'film',
-        defaultValue: 'HP5+ 400',
-        options: [
-          { value: 'HP5+ 400', label: 'HP5+ 400' },
-          { value: 'Tri-X 400', label: 'Tri-X 400' },
-          { value: 'Delta 100', label: 'Delta 100' }
-        ]
+        defaultValue: 'hp5_plus',
+        options: df96Films.map((film) => ({
+          value: film.id,
+          label: film.label,
+          description: film.advisoryNotes?.[0]
+        }))
+      },
+      {
+        id: 'ratingChoice',
+        label: 'Target rating',
+        type: 'select',
+        section: 'film',
+        defaultValue: 'normal',
+        getOptions: getDf96RatingOptions,
+        helperText:
+          'These are the literal ISO labels from the official Df96 chart. Pull, normal, and push bands are validated against the chosen temperature and agitation.'
       },
       {
         id: 'temperatureF',
         label: 'Monobath temperature',
-        type: 'number',
+        type: 'select',
         section: 'chemistry',
-        unit: 'F',
-        min: 70,
-        max: 85,
-        step: 1,
-        defaultValue: 80
+        defaultValue: '80',
+        getOptions: getDf96TemperatureOptions
       },
       {
-        id: 'developSec',
-        label: 'Monobath time',
+        id: 'agitationMode',
+        label: 'Agitation method',
+        type: 'select',
+        section: 'workflow',
+        defaultValue: 'constant',
+        options: df96AgitationOptions.map((option) => ({
+          value: option.id,
+          label: `${option.label} · ${option.summary}`,
+          description: option.detail
+        }))
+      },
+      {
+        id: 'chemistryState',
+        label: 'Chemistry condition',
+        type: 'select',
+        section: 'chemistry',
+        defaultValue: 'fresh',
+        options: [
+          { value: 'fresh', label: 'Fresh chemistry' },
+          { value: 'reused', label: 'Reused chemistry' }
+        ]
+      },
+      {
+        id: 'processedUnits',
+        label: 'Units already processed',
+        type: 'number',
+        section: 'chemistry',
+        min: 1,
+        max: 50,
+        step: 1,
+        defaultValue: 1,
+        helperText:
+          'Count each previously processed DF96 tank run as 1 unit. Use the total prior rolls or tank runs this chemistry has already processed.',
+        isVisible: (values) => values.chemistryState === 'reused'
+      },
+      {
+        id: 'extraProcessSec',
+        label: 'Extra time above minimum',
         type: 'number',
         section: 'workflow',
         unit: 'sec',
-        helperText: 'Acts as a manual override above the CineStill minimum for the chosen temperature.',
-        min: 180,
+        helperText:
+          'Optional extra time above the official minimum. Df96 extra time helps fixing and dye removal, not development.',
+        min: 0,
         max: 720,
-        step: 30,
-        defaultValue: 240
+        step: 15,
+        defaultValue: 0
+      },
+      {
+        id: 'washMode',
+        label: 'Archival wash method',
+        type: 'select',
+        section: 'workflow',
+        defaultValue: 'standard',
+        options: df96WashModes.map((mode) => ({
+          value: mode.id,
+          label: mode.label,
+          description: mode.summary
+        }))
       },
       {
         id: 'washSec',
@@ -517,7 +608,8 @@ export const recipes: RecipeDefinition[] = [
         min: 180,
         max: 600,
         step: 60,
-        defaultValue: 300
+        defaultValue: 300,
+        isVisible: (values) => values.washMode === 'standard'
       },
       {
         id: 'warningLeadSec',
@@ -529,16 +621,6 @@ export const recipes: RecipeDefinition[] = [
         max: 6,
         step: 1,
         defaultValue: 3
-      },
-      {
-        id: 'inversions',
-        label: 'Inversions each minute',
-        type: 'number',
-        section: 'runtime',
-        min: 2,
-        max: 6,
-        step: 1,
-        defaultValue: 4
       }
     ]
   }

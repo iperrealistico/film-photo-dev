@@ -34,6 +34,13 @@ interface SessionConsoleProps {
   lastLoggedBatch?: ChemistryBatch;
 }
 
+function formatPhaseDurationLabel(
+  durationSec: number,
+  timerMode: SessionPlan['phaseList'][number]['timerMode'],
+) {
+  return timerMode === 'manual' ? 'Manual' : formatDuration(durationSec);
+}
+
 export function SessionConsole({
   recipe,
   plan,
@@ -53,6 +60,7 @@ export function SessionConsole({
     ? plan.phaseList.slice(frame.phaseIndex + 1, frame.phaseIndex + 4)
     : plan.phaseList.slice(-3);
   const isAwaitingPhaseStart = state.status === 'awaiting_phase_start';
+  const isManualPhase = frame.currentPhase?.timerMode === 'manual';
   const nextPhaseLabel = frame.currentPhase?.label ?? 'Next step';
 
   const isCompletionState =
@@ -123,7 +131,10 @@ export function SessionConsole({
                 : 'Session complete'
               : isAwaitingPhaseStart
                 ? `Ready for ${nextPhaseLabel}?`
-                : formatDuration(frame.remainingInPhaseSec)}
+                : formatPhaseDurationLabel(
+                    frame.remainingInPhaseSec,
+                    frame.currentPhase?.timerMode,
+                  )}
           </h1>
           <p>
             {isCompletionState
@@ -131,7 +142,9 @@ export function SessionConsole({
                 ? 'This session ended early. Reset before you begin another run.'
                 : 'Review the summary and save the chemistry log if you want.'
               : isAwaitingPhaseStart
-                ? 'The previous phase has finished. Start the next timer only when the tank and chemistry are ready.'
+                ? isManualPhase
+                  ? 'This step is manual on purpose. Complete it only after you finish the physical rinse or wash action.'
+                  : 'The previous phase has finished. Start the next timer only when the tank and chemistry are ready.'
                 : frame.currentPhase?.detail}
           </p>
         </div>
@@ -144,7 +157,9 @@ export function SessionConsole({
                 ? `${nextPhaseLabel} is waiting to begin`
               : frame.nextCue
                 ? `${frame.nextCue.label} in ${frame.nextCueInSec ?? 0}s`
-                : 'No more cues in this step'}
+                : isManualPhase
+                  ? 'Manual step in progress'
+                  : 'No more cues in this step'}
           </strong>
           {!isCompletionState ? (
             <p>
@@ -163,8 +178,9 @@ export function SessionConsole({
           <p className="eyebrow">Next step paused</p>
           <h2 className="runtime-gate-panel__title">{nextPhaseLabel} is ready when you are.</h2>
           <p>
-            Tap the large button only when you want the next countdown to begin for
-            real.
+            {isManualPhase
+              ? 'Tap the large button after you physically finish this instruction step.'
+              : 'Tap the large button only when you want the next countdown to begin for real.'}
           </p>
           <div className="action-row">
             <button
@@ -174,7 +190,7 @@ export function SessionConsole({
             >
               <span className="button-label">
                 <PlayIcon aria-hidden="true" />
-                <span>Begin next step</span>
+                <span>{isManualPhase ? 'Complete this step' : 'Begin next step'}</span>
               </span>
             </button>
             <button type="button" className="secondary-button runtime-button" onClick={onAbort}>
@@ -254,13 +270,17 @@ export function SessionConsole({
             {frame.currentPhase ? (
               <div className="phase-pill is-current">
                 <strong>{frame.currentPhase.label}</strong>
-                <span>{formatDuration(frame.remainingInPhaseSec)} left</span>
+                <span>
+                  {frame.currentPhase.timerMode === 'manual'
+                    ? 'Manual step'
+                    : `${formatDuration(frame.remainingInPhaseSec)} left`}
+                </span>
               </div>
             ) : null}
             {upcomingPhases.map((phase) => (
               <div key={phase.id} className="phase-pill">
                 <strong>{phase.label}</strong>
-                <span>{formatDuration(phase.durationSec)}</span>
+                <span>{formatPhaseDurationLabel(phase.durationSec, phase.timerMode)}</span>
               </div>
             ))}
           </div>
@@ -308,6 +328,18 @@ export function SessionConsole({
               <span>Last used</span>
               <strong>{formatDateTime(lastLoggedBatch.lastUsedAt)}</strong>
             </div>
+            {typeof lastLoggedBatch.processedUnits === 'number' ? (
+              <div className="fact-row">
+                <span>Prior units logged</span>
+                <strong>{lastLoggedBatch.processedUnits}</strong>
+              </div>
+            ) : null}
+            {typeof lastLoggedBatch.suggestedMinimumTimeSec === 'number' ? (
+              <div className="fact-row">
+                <span>Saved minimum time</span>
+                <strong>{formatDuration(lastLoggedBatch.suggestedMinimumTimeSec)}</strong>
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}

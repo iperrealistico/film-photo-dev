@@ -18,6 +18,7 @@ import {
 import {
   abortSession,
   completeSession,
+  completeManualPhase,
   confirmPhaseStart,
   confirmRecovery,
   createActiveSession,
@@ -666,10 +667,11 @@ export function App() {
       sessionId: activeSession.sessionId
     });
 
-    if (preferences.phaseConfirmationEnabled) {
+    if (runtimeFrame.currentPhase?.timerMode === 'manual' || preferences.phaseConfirmationEnabled) {
       logUiEvent('phase_wait_requested', {
         phaseIndex: runtimeFrame.phaseIndex,
-        phaseLabel: nextPhaseLabel
+        phaseLabel: nextPhaseLabel,
+        timerMode: runtimeFrame.currentPhase?.timerMode ?? 'countdown'
       });
       setActiveSession((current) =>
         current && current.status === 'running'
@@ -849,6 +851,14 @@ export function App() {
   }
 
   function handleStartSession() {
+    if (draftPlan.blockingIssues.length > 0) {
+      logUiEvent('session_start_blocked', {
+        blockingIssues: draftPlan.blockingIssues
+      });
+      showToast('Pick a supported DF96 combo before starting.');
+      return;
+    }
+
     const now = Date.now();
     const session = beginSessionState(createActiveSession(draftPlan, now), now);
 
@@ -874,6 +884,14 @@ export function App() {
   async function handleLogBatch() {
     const plan = activePlan ?? draftPlan;
     const now = new Date().toISOString();
+    const isDf96Plan = plan.recipeId === 'cinestill-df96';
+    const processedUnits =
+      isDf96Plan && plan.inputSnapshot.chemistryState === 'reused'
+        ? Number(plan.inputSnapshot.processedUnits) || 1
+        : undefined;
+    const suggestedMinimumTimeSec = isDf96Plan
+      ? plan.phaseList.find((phase) => phase.id === 'monobath')?.durationSec
+      : undefined;
     const batch: ChemistryBatch = {
       id: `batch-${Math.random().toString(36).slice(2, 10)}`,
       chemistryLabel: selectedRecipe.developerLabel,
@@ -884,10 +902,18 @@ export function App() {
       estimatedRemainingCapacity:
         plan.capacityCheck?.status === 'danger'
           ? 'Already near the recommended capacity limit'
+          : isDf96Plan
+            ? processedUnits
+              ? `Reuse recorded after ${processedUnits} prior unit${processedUnits === 1 ? '' : 's'}`
+              : 'Fresh Df96 logged for future reuse tracking'
           : selectedRecipe.processType === 'color'
             ? 'Track roll count and developer age'
             : 'Likely fine for another similar run',
-      notes: `Logged after ${plan.recipeName}.`
+      processedUnits,
+      suggestedMinimumTimeSec,
+      notes: isDf96Plan
+        ? `Logged after ${plan.recipeName}. Minimum monobath ${formatDuration(suggestedMinimumTimeSec ?? 0)}.`
+        : `Logged after ${plan.recipeName}.`
     };
 
     try {
@@ -1362,10 +1388,22 @@ export function App() {
                   const phaseLabel = runtimeFrame.currentPhase?.label ?? 'Next step';
                   logUiEvent('phase_wait_confirmed', {
                     phaseIndex: runtimeFrame.phaseIndex,
-                    phaseLabel
+                    phaseLabel,
+                    timerMode: runtimeFrame.currentPhase?.timerMode ?? 'countdown'
                   });
                   setActiveSession((current) =>
-                    current ? confirmPhaseStart(current, Date.now(), phaseLabel) : current,
+                    runtimeFrame.currentPhase?.timerMode === 'manual' && runtimeFrame.currentPhase
+                      ? current
+                        ? completeManualPhase(
+                            current,
+                            Date.now(),
+                            runtimeFrame.currentPhase.id,
+                            phaseLabel,
+                          )
+                        : current
+                      : current
+                        ? confirmPhaseStart(current, Date.now(), phaseLabel)
+                        : current,
                   );
                 }}
                 onConfirmRecovery={() => {

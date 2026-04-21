@@ -80,7 +80,7 @@ export function AboutPanel() {
           </div>
           <ul className="bullet-list">
             <li>Recipe guidance for color and black-and-white workflows</li>
-            <li>Timing changes for reuse, push, pull, and temperature drift</li>
+            <li>Source-backed timing changes for reuse, push, pull, and temperature drift where the recipe manual supports them</li>
             <li>Offline-first behavior for actual wet-handed darkroom use</li>
           </ul>
         </article>

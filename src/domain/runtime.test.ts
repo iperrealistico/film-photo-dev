@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveSessionState, SessionPlan } from './types';
 import {
+  completeManualPhase,
   confirmPhaseStart,
   confirmRecovery,
   createActiveSession,
@@ -48,6 +49,7 @@ const simplePlan: SessionPlan = {
   calculationLines: [],
   calculationTrace: [],
   mixAmounts: [],
+  blockingIssues: [],
   warnings: [],
   readinessChecklist: [],
   nextSteps: [],
@@ -57,6 +59,24 @@ const simplePlan: SessionPlan = {
 function createRunningState() {
   return startSession(createActiveSession(simplePlan, 1_000), 1_000);
 }
+
+const manualPlan: SessionPlan = {
+  ...simplePlan,
+  id: 'plan-manual',
+  totalDurationSec: 30,
+  phaseList: [
+    simplePlan.phaseList[0],
+    {
+      id: 'wash-step',
+      label: 'Minimal wash · 5 inversions',
+      kind: 'instruction',
+      durationSec: 0,
+      timerMode: 'manual',
+      detail: 'Fill, invert, and drain.',
+      cueEvents: []
+    }
+  ]
+};
 
 describe('runtime', () => {
   it('hydrates an in-progress session into recovering with uncertainty', () => {
@@ -167,5 +187,32 @@ describe('runtime', () => {
     expect(frame.currentPhase).toBeNull();
     expect(frame.nextCue).toBeNull();
     expect(frame.phaseIndex).toBe(1);
+  });
+
+  it('holds on a manual phase once the timed phase reaches its boundary', () => {
+    const runningState = startSession(createActiveSession(manualPlan, 1_000), 1_000);
+
+    const frame = deriveRuntimeFrame(manualPlan, runningState, 31_000);
+
+    expect(frame.completed).toBe(false);
+    expect(frame.currentPhase?.id).toBe('wash-step');
+    expect(frame.currentPhase?.timerMode).toBe('manual');
+    expect(frame.remainingInPhaseSec).toBe(0);
+  });
+
+  it('advances past a manual phase only after the user completes it', () => {
+    const runningState = startSession(createActiveSession(manualPlan, 1_000), 1_000);
+    const waitingState = waitForPhaseConfirmation(runningState, 31_000, 'Minimal wash · 5 inversions');
+    const completedState = completeManualPhase(
+      waitingState,
+      38_000,
+      'wash-step',
+      'Minimal wash · 5 inversions',
+    );
+
+    const frame = deriveRuntimeFrame(manualPlan, completedState, 38_000);
+
+    expect(completedState.completedManualPhaseIds).toContain('wash-step');
+    expect(frame.completed).toBe(true);
   });
 });

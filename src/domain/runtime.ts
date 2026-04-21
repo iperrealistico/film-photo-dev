@@ -38,6 +38,7 @@ export function createActiveSession(plan: SessionPlan, nowMs: number) {
     lastPersistedAtMs: nowMs,
     uncertaintyMs: 0,
     resumeStatus: 'running' as const,
+    completedManualPhaseIds: [],
     eventLog: [createEvent('created', 'Session prepared from the review screen.')]
   };
 }
@@ -46,12 +47,17 @@ export function hydrateActiveSession(
   snapshot: ActiveSessionState,
   nowMs: number,
 ): ActiveSessionState {
+  const hydratedBase = {
+    ...snapshot,
+    completedManualPhaseIds: snapshot.completedManualPhaseIds ?? []
+  };
+
   if (snapshot.status === 'running' || snapshot.status === 'paused') {
     const uncertaintyMs = Math.max(0, nowMs - snapshot.lastPersistedAtMs);
 
     return appendEvent(
       {
-        ...snapshot,
+        ...hydratedBase,
         status: 'recovering',
         recoveryNote:
           uncertaintyMs > 15000
@@ -65,7 +71,7 @@ export function hydrateActiveSession(
     );
   }
 
-  return snapshot;
+  return hydratedBase;
 }
 
 export function startSession(state: ActiveSessionState, nowMs: number) {
@@ -159,6 +165,35 @@ export function confirmPhaseStart(state: ActiveSessionState, nowMs: number, phas
   );
 }
 
+export function completeManualPhase(
+  state: ActiveSessionState,
+  nowMs: number,
+  phaseId: string,
+  phaseLabel: string,
+) {
+  if (state.status !== 'awaiting_phase_start') {
+    return state;
+  }
+
+  const pauseDuration = state.pauseStartedAtMs ? nowMs - state.pauseStartedAtMs : 0;
+  const completedManualPhaseIds = Array.from(
+    new Set([...(state.completedManualPhaseIds ?? []), phaseId]),
+  );
+
+  return appendEvent(
+    {
+      ...state,
+      status: 'running',
+      pauseStartedAtMs: null,
+      totalPausedMs: state.totalPausedMs + pauseDuration,
+      completedManualPhaseIds,
+      lastPersistedAtMs: nowMs
+    },
+    'phase_wait_confirmed',
+    `${phaseLabel} completed after manual confirmation.`,
+  );
+}
+
 export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
   const nextStatus = state.resumeStatus;
 
@@ -226,10 +261,29 @@ export function deriveRuntimeFrame(
   nowMs: number,
 ): RuntimeFrame {
   const elapsedSec = Math.floor(getEffectiveElapsedMs(state, nowMs) / 1000);
+  const completedManualPhaseIds = new Set(state.completedManualPhaseIds ?? []);
   let cursor = 0;
 
   for (let index = 0; index < plan.phaseList.length; index += 1) {
     const phase = plan.phaseList[index];
+
+    if (phase.timerMode === 'manual') {
+      if (!completedManualPhaseIds.has(phase.id) && elapsedSec >= cursor) {
+        return {
+          phaseIndex: index,
+          currentPhase: phase,
+          elapsedInPhaseSec: 0,
+          remainingInPhaseSec: 0,
+          totalElapsedSec: elapsedSec,
+          nextCue: null,
+          nextCueInSec: null,
+          completed: false
+        };
+      }
+
+      continue;
+    }
+
     const phaseStart = cursor;
     const phaseEnd = cursor + phase.durationSec;
 

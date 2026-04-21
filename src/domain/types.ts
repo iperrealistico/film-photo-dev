@@ -156,6 +156,7 @@ export interface PhaseDefinition {
   label: string;
   kind: PhaseKind;
   durationSec: number;
+  timerMode?: 'countdown' | 'manual';
   detail: string;
   cueEvents: CueEvent[];
 }
@@ -208,6 +209,7 @@ export interface SessionPlan {
   calculationLines: CalculationLine[];
   calculationTrace: CalculationTraceEntry[];
   mixAmounts: MixAmount[];
+  blockingIssues: string[];
   warnings: string[];
   readinessChecklist: string[];
   nextSteps: string[];
@@ -243,6 +245,7 @@ export interface ActiveSessionState {
   lastPersistedAtMs: number;
   uncertaintyMs: number;
   resumeStatus: 'running' | 'paused';
+  completedManualPhaseIds?: string[];
   recoveryNote?: string;
   eventLog: SessionEvent[];
 }
@@ -276,6 +279,8 @@ export interface ChemistryBatch {
   lastUsedAt: string;
   sessionsLogged: number;
   estimatedRemainingCapacity: string;
+  processedUnits?: number;
+  suggestedMinimumTimeSec?: number;
   notes?: string;
 }
 

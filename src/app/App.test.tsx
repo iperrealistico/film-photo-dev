@@ -320,6 +320,44 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /Review plan/i })).toBeInTheDocument();
   });
 
+  it('blocks unsupported DF96 combinations on the review screen', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+    await user.selectOptions(screen.getByLabelText(/Monobath temperature/i), '65');
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+
+    expect(await screen.findByText(/Start blocked/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Unsupported combo/i })).toBeDisabled();
+  });
+
+  it('pauses automatically for manual DF96 wash steps', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+    await user.selectOptions(screen.getByLabelText(/Archival wash method/i), 'minimal');
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(190_000);
+    });
+
+    expect(screen.getByRole('button', { name: /Complete this step/i })).toBeInTheDocument();
+    expect(screen.getByText(/manual on purpose/i)).toBeInTheDocument();
+  }, 10000);
+
   it('scrolls back to the top when switching screens', async () => {
     const user = userEvent.setup();
     const scrollToSpy = vi.mocked(window.scrollTo);

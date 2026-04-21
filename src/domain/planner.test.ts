@@ -256,7 +256,7 @@ describe('session planning', () => {
     expect(plan.phaseList.find((phase) => phase.label === 'Blix')?.durationSec).toBe(480);
   });
 
-  it('raises DF96 monobath time to the minimum for the chosen temperature', () => {
+  it('derives the DF96 minimum from the official matrix for a supported combo', () => {
     const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
 
     if (!recipe) {
@@ -267,16 +267,110 @@ describe('session planning', () => {
       recipe.id,
       {
         ...createDefaultInputState(recipe),
+        agitationMode: 'minimal',
         temperatureF: 70,
-        developSec: 180
+        extraProcessSec: 0
       },
       defaultAlertProfiles[0],
     );
 
     expect(plan.phaseList[0]?.durationSec).toBe(360);
+    expect(plan.blockingIssues).toHaveLength(0);
+    expect(plan.calculationLines.some((line) => line.label === 'Matrix result')).toBe(true);
+  });
+
+  it('caps DF96 reuse at eight minutes before applying extra time above minimum', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
+
+    if (!recipe) {
+      throw new Error('Missing DF96 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        filmStock: 'delta_100',
+        ratingChoice: 'pull',
+        agitationMode: 'constant',
+        temperatureF: 70,
+        chemistryState: 'reused',
+        processedUnits: 4,
+        extraProcessSec: 30
+      },
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.phaseList[0]?.durationSec).toBe(510);
     expect(
-      plan.warnings.some((warning) => /raised monobath time/i.test(warning)),
+      plan.warnings.some((warning) => /cap/i.test(warning) || /8:00/i.test(warning)),
     ).toBe(true);
+  });
+
+  it('blocks unsupported DF96 matrix cells', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
+
+    if (!recipe) {
+      throw new Error('Missing DF96 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        agitationMode: 'constant',
+        temperatureF: 65
+      },
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.blockingIssues).not.toHaveLength(0);
+    expect(plan.blockingIssues[0]).toMatch(/not charted/i);
+  });
+
+  it('builds manual DF96 wash steps for the minimal-water archival wash', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
+
+    if (!recipe) {
+      throw new Error('Missing DF96 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        washMode: 'minimal'
+      },
+      defaultAlertProfiles[0],
+    );
+
+    expect(plan.phaseList.slice(1).every((phase) => phase.timerMode === 'manual')).toBe(true);
+    expect(plan.phaseList.slice(1).map((phase) => phase.label)).toEqual([
+      'Minimal wash · 5 inversions',
+      'Minimal wash · 10 inversions',
+      'Minimal wash · 20 inversions',
+      'Final rinse'
+    ]);
+  });
+
+  it('normalizes legacy DF96 presets into the official matrix-backed fields', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cinestill-df96');
+
+    if (!recipe) {
+      throw new Error('Missing DF96 recipe.');
+    }
+
+    const normalized = normalizeInputState(recipe, {
+      filmName: 'Tri-X 400',
+      temperatureF: 72,
+      developSec: 420,
+      washSec: 300
+    });
+
+    expect(normalized.filmStock).toBe('tri_x');
+    expect(normalized.agitationMode).toBe('minimal');
+    expect(normalized.temperatureF).toBe('70');
+    expect(normalized.extraProcessSec).toBe(60);
   });
 });
 

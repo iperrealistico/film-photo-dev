@@ -200,7 +200,7 @@ export function RecipeBrowser({
             </div>
             <ul className="bullet-list">
               <li>Guides each step of the process instead of acting like a simple timer.</li>
-              <li>Adjusts times for reuse, push, pull, and temperature changes.</li>
+              <li>Applies source-backed timing changes for reuse, push, pull, and temperature across the supported recipes.</li>
               <li>Keeps mix calculations, warnings, and the next action easy to read.</li>
             </ul>
           </article>

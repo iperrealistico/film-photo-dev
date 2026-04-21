@@ -1,4 +1,25 @@
 import { recipes } from '../data/recipes';
+import {
+  DF96_ARCHIVAL_NOTE,
+  DF96_EXHAUSTION_NOTE,
+  DF96_LIFESPAN_NOTE,
+  DF96_MAX_REUSE_TIME_SEC,
+  DF96_PULL_BAND_EXTRA_SEC,
+  DF96_REUSE_STEP_SEC,
+  DF96_SNIP_TEST_NOTE,
+  DF96_STANDARD_WASH_DEFAULT_SEC,
+  DF96_STANDARD_WASH_NOTE,
+  DF96_MINIMAL_WASH_NOTE,
+  getDf96FilmById,
+  getDf96FilmByLegacyName,
+  getDf96MatrixCell,
+  getDf96RatingOption,
+  type Df96AgitationMode,
+  type Df96MatrixCell,
+  type Df96MatrixOutcomeKey,
+  type Df96RatingBand,
+  type Df96RatingOption
+} from '../data/df96';
 import type {
   AlertProfile,
   CalculationTraceEntry,
@@ -204,12 +225,14 @@ function buildPhase(
   durationSec: number,
   detail: string,
   cueEvents: CueEvent[] = [],
+  timerMode: PhaseDefinition['timerMode'] = 'countdown',
 ): PhaseDefinition {
   return {
     id,
     label,
     kind,
     durationSec,
+    timerMode,
     detail,
     cueEvents
   };
@@ -684,6 +707,7 @@ function planCs41(
     ],
     calculationTrace,
     mixAmounts: [],
+    blockingIssues: [],
     warnings,
     readinessChecklist: [
       'Bring the developer and blix up to temperature before start.',
@@ -945,6 +969,7 @@ function planHc110(
       { label: 'HC-110 syrup', amountMl: syrupMl, emphasis: true },
       { label: 'Water', amountMl: waterMl }
     ],
+    blockingIssues: [],
     warnings,
     readinessChecklist: [
       'Confirm the working solution volume and the film load.',
@@ -960,74 +985,184 @@ function planHc110(
   };
 }
 
-function deriveDf96Guidance(temperatureF: number) {
-  if (temperatureF <= 72) {
-    return {
-      minimumDevelopSec: 360,
-      agitationLabel: 'Minimal',
-      agitationDetail: '10 sec gentle agitation, then 5 sec every minute.'
-    };
+function getDf96AgitationLabel(agitationMode: Df96AgitationMode) {
+  switch (agitationMode) {
+    case 'constant':
+      return 'Constant agitation';
+    case 'intermittent':
+      return 'Intermittent agitation';
+    case 'minimal':
+      return 'Minimal agitation';
   }
-
-  if (temperatureF <= 77) {
-    return {
-      minimumDevelopSec: 240,
-      agitationLabel: 'Intermittent',
-      agitationDetail: '30 sec constant agitation, then 10 sec every minute.'
-    };
-  }
-
-  return {
-    minimumDevelopSec: 180,
-    agitationLabel: 'Constant',
-    agitationDetail: 'Continuous inversions and/or rotations while changing direction.'
-  };
 }
 
-function planDf96(
-  recipe: RecipeDefinition,
-  values: RecipeInputMap,
-  alertProfile: AlertProfile,
-): SessionPlan {
-  const filmName = getString(values, 'filmName');
-  const temperatureF = getNumber(values, 'temperatureF');
-  const requestedDevelopSec = getNumber(values, 'developSec');
-  const washSec = getNumber(values, 'washSec');
-  const inversions = getNumber(values, 'inversions');
-  const warningLeadSec = Math.max(
-    alertProfile.warningLeadSec,
-    getNumber(values, 'warningLeadSec'),
-  );
-  const guidance = deriveDf96Guidance(temperatureF);
-  const developSec = Math.max(requestedDevelopSec, guidance.minimumDevelopSec);
+function getDf96AgitationDetail(agitationMode: Df96AgitationMode) {
+  switch (agitationMode) {
+    case 'constant':
+      return 'Continuous inversions and or rotations while changing direction.';
+    case 'intermittent':
+      return '30 sec constant agitation, then 10 sec every minute.';
+    case 'minimal':
+      return '10 sec gentle agitation, then 5 sec every minute.';
+  }
+}
 
-  const monobathCues =
-    guidance.agitationLabel === 'Constant'
-      ? [
-          {
-            id: 'monobath-keep-moving',
-            atSec: Math.min(30, Math.max(1, developSec - 1)),
-            label: 'Keep agitation moving',
-            style: 'soft' as const
-          }
-        ]
-      : buildAgitationCueSeries('monobath', developSec, 60, warningLeadSec, inversions);
+function getDf96BandLabel(band: Df96RatingBand) {
+  switch (band) {
+    case 'pull':
+      return 'Pull band';
+    case 'normal':
+      return 'Normal band';
+    case 'push':
+      return 'Push band';
+  }
+}
 
-  const phaseList = [
-    buildPhase(
-      'monobath',
-      'Monobath',
-      'developer',
-      developSec,
-      `${guidance.agitationLabel} agitation guidance: ${guidance.agitationDetail}`,
-      monobathCues,
-    ),
+function getDf96OutcomeSummary(outcomeKey: Df96MatrixOutcomeKey) {
+  switch (outcomeKey) {
+    case 'pull_full':
+      return 'Pull -1';
+    case 'pull_half':
+      return 'Pull -1/2';
+    case 'normal':
+      return 'Normal';
+    case 'push_half':
+      return 'Push +1/2';
+    case 'push_full':
+      return 'Push +1';
+    case 'push_two':
+      return 'Push +2';
+    case 'film_3200':
+      return '3200 Film';
+    case 'unsupported':
+      return 'Unsupported';
+  }
+}
+
+function getDf96ProcessedUnits(values: RecipeInputMap, chemistryState: string) {
+  if (chemistryState !== 'reused') {
+    return 0;
+  }
+
+  const processedUnits = Number(values.processedUnits);
+
+  if (Number.isFinite(processedUnits) && processedUnits > 0) {
+    return Math.round(processedUnits);
+  }
+
+  return 1;
+}
+
+function buildDf96AgitationCues(
+  phaseId: string,
+  durationSec: number,
+  agitationMode: Df96AgitationMode,
+  leadSec: number,
+) {
+  if (agitationMode === 'constant') {
+    return [
+      {
+        id: `${phaseId}-constant-start`,
+        atSec: 0,
+        label: 'Start constant agitation',
+        style: 'strong' as const
+      },
+      {
+        id: `${phaseId}-constant-reminder`,
+        atSec: Math.max(1, Math.min(durationSec - 1, 30)),
+        label: 'Keep agitation moving',
+        style: 'soft' as const
+      }
+    ];
+  }
+
+  const cues: CueEvent[] = [
+    {
+      id: `${phaseId}-initial`,
+      atSec: 0,
+      label:
+        agitationMode === 'intermittent'
+          ? 'Agitate continuously for 30 sec'
+          : 'Agitate gently for 10 sec',
+      style: 'strong'
+    }
+  ];
+
+  for (let cueAtSec = 60; cueAtSec < durationSec; cueAtSec += 60) {
+    if (cueAtSec - leadSec > 0) {
+      cues.push({
+        id: `${phaseId}-prepare-${cueAtSec}`,
+        atSec: cueAtSec - leadSec,
+        label: 'Prepare to agitate',
+        style: 'soft'
+      });
+    }
+
+    cues.push({
+      id: `${phaseId}-agitate-${cueAtSec}`,
+      atSec: cueAtSec,
+      label:
+        agitationMode === 'intermittent' ? 'Agitate for 10 sec' : 'Agitate gently for 5 sec',
+      style: 'strong'
+    });
+  }
+
+  return cues;
+}
+
+function buildDf96WashPhases(
+  washMode: string,
+  washSec: number,
+  warningLeadSec: number,
+): PhaseDefinition[] {
+  if (washMode === 'minimal') {
+    return [
+      buildPhase(
+        'wash-minimal-1',
+        'Minimal wash · 5 inversions',
+        'instruction',
+        0,
+        'Fill with fresh water, invert 5 times, then drain completely.',
+        [],
+        'manual',
+      ),
+      buildPhase(
+        'wash-minimal-2',
+        'Minimal wash · 10 inversions',
+        'instruction',
+        0,
+        'Refill with fresh water, invert 10 times, then drain completely.',
+        [],
+        'manual',
+      ),
+      buildPhase(
+        'wash-minimal-3',
+        'Minimal wash · 20 inversions',
+        'instruction',
+        0,
+        'Refill with fresh water, invert 20 times, then drain completely.',
+        [],
+        'manual',
+      ),
+      buildPhase(
+        'wash-minimal-4',
+        'Final rinse',
+        'instruction',
+        0,
+        'Run the final rinse, drain the tank, and hang the film to dry.',
+        [],
+        'manual',
+      )
+    ];
+  }
+
+  return [
     buildPhase(
       'wash',
       'Wash',
       'wash',
       washSec,
-      'Rinse thoroughly before drying.',
+      DF96_STANDARD_WASH_NOTE,
       [
         {
           id: 'wash-finish',
@@ -1038,45 +1173,203 @@ function planDf96(
       ],
     )
   ];
+}
+
+function buildDf96BlockingIssues(
+  filmLabel: string,
+  rating: Df96RatingOption | null,
+  cell: Df96MatrixCell | null,
+  agitationMode: Df96AgitationMode,
+) {
+  const issues: string[] = [];
+
+  if (!rating) {
+    issues.push(`Choose a valid official Df96 rating option for ${filmLabel}.`);
+    return issues;
+  }
+
+  if (!cell) {
+    issues.push('Choose one of the official Df96 temperature and agitation combinations.');
+    return issues;
+  }
+
+  if (cell.outcomeKey === 'unsupported') {
+    issues.push(
+      `${cell.temperatureF}°F with ${getDf96AgitationLabel(agitationMode).toLowerCase()} is not charted by CineStill Df96.`,
+    );
+    return issues;
+  }
+
+  if (cell.band && rating.band !== cell.band) {
+    issues.push(
+      `${getDf96BandLabel(rating.band)} (${rating.isoLabel}) does not match the ${cell.outcomeLabel} matrix cell at ${cell.temperatureF}°F.`,
+    );
+  }
+
+  if (cell.outcomeKey === 'film_3200' && !rating.supports3200Cell) {
+    issues.push(
+      `The ${cell.outcomeLabel} matrix cell is reserved for the high-speed 3200-film entries in the official Df96 chart.`,
+    );
+  }
+
+  return issues;
+}
+
+function planDf96(
+  recipe: RecipeDefinition,
+  values: RecipeInputMap,
+  alertProfile: AlertProfile,
+): SessionPlan {
+  const filmStock = getString(values, 'filmStock');
+  const ratingChoice = getString(values, 'ratingChoice');
+  const temperatureF = getNumber(values, 'temperatureF');
+  const agitationMode = getString(values, 'agitationMode') as Df96AgitationMode;
+  const chemistryState = getString(values, 'chemistryState');
+  const processedUnits = getDf96ProcessedUnits(values, chemistryState);
+  const extraProcessSec = Math.max(0, getNumber(values, 'extraProcessSec'));
+  const washMode = getString(values, 'washMode');
+  const washSec = Math.max(
+    60,
+    getNumber(values, 'washSec') || DF96_STANDARD_WASH_DEFAULT_SEC,
+  );
+  const warningLeadSec = Math.max(
+    alertProfile.warningLeadSec,
+    getNumber(values, 'warningLeadSec'),
+  );
+  const film = getDf96FilmById(filmStock);
+  const rating = getDf96RatingOption(film.id, ratingChoice);
+  const cell = getDf96MatrixCell(temperatureF, agitationMode);
+  const blockingIssues = buildDf96BlockingIssues(film.label, rating, cell, agitationMode);
+  const agitationLabel = getDf96AgitationLabel(agitationMode);
+  const agitationDetail = getDf96AgitationDetail(agitationMode);
+  const baseTimeSec = cell?.baseTimeSec ?? 0;
+  const pullBandExtraSec = rating?.band === 'pull' ? DF96_PULL_BAND_EXTRA_SEC : 0;
+  const multipliedBaseSec = rating
+    ? Math.round((baseTimeSec + pullBandExtraSec) * rating.multiplier)
+    : baseTimeSec + pullBandExtraSec;
+  const reuseAddedSec = chemistryState === 'reused' ? processedUnits * DF96_REUSE_STEP_SEC : 0;
+  const minimumDevelopSec = Math.min(
+    DF96_MAX_REUSE_TIME_SEC,
+    multipliedBaseSec + reuseAddedSec,
+  );
+  const developSec = minimumDevelopSec + extraProcessSec;
+
+  const monobathPhase = buildPhase(
+    'monobath',
+    'Monobath',
+    'developer',
+    developSec,
+    `${agitationLabel}: ${agitationDetail}`,
+    buildDf96AgitationCues('monobath', developSec, agitationMode, warningLeadSec),
+  );
+  const phaseList = [monobathPhase, ...buildDf96WashPhases(washMode, washSec, warningLeadSec)];
 
   const calculationTrace: CalculationTraceEntry[] = [
     makeTraceEntry(
-      'Film choice',
-      filmName,
-      'Selected by the user',
-      'The current Df96 planner records the film stock but uses a generic CineStill minimum-time model.',
-      'manual',
+      'Film stock',
+      film.label,
+      'Official CineStill Df96 film table',
+      rating
+        ? `${rating.isoLabel} selected from the ${getDf96BandLabel(rating.band).toLowerCase()}.`
+        : 'A valid chart row is required before the session can start.',
     ),
     makeTraceEntry(
-      'Temperature guidance',
-      `${temperatureF}°F -> ${guidance.agitationLabel.toLowerCase()} zone`,
+      'Matrix cell',
+      cell ? `${temperatureF}°F / ${cell.temperatureC}°C · ${cell.outcomeLabel}` : 'Invalid',
       'CineStill Df96 instructions',
-      `${guidance.agitationDetail} Minimum ${formatMinutes(guidance.minimumDevelopSec)}.`,
+      cell
+        ? `${agitationLabel} gives a ${formatClock(cell.baseTimeSec)} minimum before film-specific multipliers, pull add-ons, or reuse time.`
+        : 'Df96 only supports the temperatures printed in the manual matrix.',
+      cell ? 'source' : 'warning',
     ),
     makeTraceEntry(
-      'User-requested monobath time',
-      formatMinutes(requestedDevelopSec),
-      'Manual user input',
-      'Used as a floor only when it is longer than the source-backed minimum.',
-      'manual',
+      'Pull band add-on',
+      pullBandExtraSec > 0 ? formatClock(pullBandExtraSec) : 'None',
+      'CineStill Df96 pull column',
+      pullBandExtraSec > 0
+        ? 'The pull column adds 1 minute before reuse time.'
+        : 'No pull-band add-on was needed.',
+      pullBandExtraSec > 0 ? 'source' : 'manual',
     ),
     makeTraceEntry(
-      'Final monobath time',
-      formatMinutes(developSec),
-      'Df96 minimum-time guardrail',
-      requestedDevelopSec < guidance.minimumDevelopSec
-        ? 'The app raised the timer to the minimum suggested by the CineStill temperature/agitation guidance.'
-        : 'The app kept the longer user-entered time.',
-      requestedDevelopSec < guidance.minimumDevelopSec ? 'warning' : 'derived',
+      'Film multiplier',
+      rating?.multiplierLabel ?? '1x min',
+      'Official CineStill Df96 film table',
+      rating?.multiplier && rating.multiplier > 1
+        ? `${rating.isoLabel} uses ${rating.multiplierLabel} to clear dye layers fully.`
+        : 'This film uses the standard Df96 minimum.',
+      rating?.multiplier && rating.multiplier > 1 ? 'source' : 'manual',
+    ),
+    makeTraceEntry(
+      'Reuse adjustment',
+      chemistryState === 'reused' ? formatClock(reuseAddedSec) : 'None',
+      'CineStill Df96 reuse guidance',
+      chemistryState === 'reused'
+        ? `${processedUnits} prior unit${processedUnits === 1 ? '' : 's'} at +15 sec each, capped at ${formatClock(DF96_MAX_REUSE_TIME_SEC)} total.`
+        : 'Fresh chemistry, so no reuse time was added.',
+      chemistryState === 'reused' ? 'source' : 'manual',
+    ),
+    makeTraceEntry(
+      'Minimum monobath time',
+      formatClock(minimumDevelopSec),
+      'Combined Df96 timing logic',
+      chemistryState === 'reused' && multipliedBaseSec + reuseAddedSec > DF96_MAX_REUSE_TIME_SEC
+        ? `The calculated minimum hit the manual reuse cap at ${formatClock(DF96_MAX_REUSE_TIME_SEC)}.`
+        : 'Matrix base time plus pull add-on, film multiplier, and reuse time.',
+      'derived',
+    ),
+    makeTraceEntry(
+      'Extra time above minimum',
+      extraProcessSec > 0 ? formatClock(extraProcessSec) : 'None',
+      'Optional user extension',
+      extraProcessSec > 0
+        ? 'Extra time extends fixing and dye removal beyond the official minimum.'
+        : 'No extra time was added above the official minimum.',
+      extraProcessSec > 0 ? 'manual' : 'manual',
+    ),
+    makeTraceEntry(
+      'Wash method',
+      washMode === 'minimal' ? 'Minimal-water archival wash' : formatClock(washSec),
+      'CineStill Df96 wash guidance',
+      washMode === 'minimal' ? DF96_MINIMAL_WASH_NOTE : DF96_STANDARD_WASH_NOTE,
+      'source',
     )
   ];
 
   const warnings = [
-    requestedDevelopSec < guidance.minimumDevelopSec
-      ? `Raised monobath time to the recommended minimum for ${temperatureF}°F.`
-      : 'Using your requested monobath time because it is at or above the current minimum guidance.',
-    'Df96 minimums come from the CineStill temperature/agitation guide. Longer times help fixing and dye removal, not development.'
+    ...blockingIssues,
+    `${agitationLabel}: ${agitationDetail}`,
+    DF96_ARCHIVAL_NOTE,
+    DF96_LIFESPAN_NOTE,
+    DF96_EXHAUSTION_NOTE,
+    DF96_SNIP_TEST_NOTE
   ];
+
+  if (chemistryState === 'reused') {
+    warnings.push(
+      `Reuse is active: ${processedUnits} prior unit${processedUnits === 1 ? '' : 's'} add ${formatClock(reuseAddedSec)} before the ${formatClock(DF96_MAX_REUSE_TIME_SEC)} cap.`,
+    );
+  } else {
+    warnings.push('Fresh Df96 selected, so no reuse time was added.');
+  }
+
+  for (const note of film.advisoryNotes ?? []) {
+    if (!warnings.includes(note)) {
+      warnings.push(note);
+    }
+  }
+
+  for (const note of rating?.notes ?? []) {
+    if (!warnings.includes(note)) {
+      warnings.push(note);
+    }
+  }
+
+  if (extraProcessSec > 0) {
+    warnings.push(
+      `Extra time is active: ${formatClock(extraProcessSec)} above the official minimum.`,
+    );
+  }
 
   if (temperatureF > 82) {
     warnings.push(
@@ -1101,25 +1394,55 @@ function planDf96(
     phaseList,
     calculationLines: [
       {
-        label: 'Recommended minimum',
-        value: formatMinutes(guidance.minimumDevelopSec)
+        label: 'Film and rating',
+        value: rating ? `${film.label} · ${rating.isoLabel}` : film.label
+      },
+      {
+        label: 'Matrix result',
+        value: cell ? `${temperatureF}°F · ${cell.outcomeLabel}` : 'Unsupported',
+        emphasis: blockingIssues.length > 0 ? 'warn' : 'normal'
+      },
+      {
+        label: 'Matrix base time',
+        value: formatClock(baseTimeSec)
+      },
+      {
+        label: 'Minimum monobath time',
+        value: formatClock(minimumDevelopSec),
+        emphasis: 'strong'
+      },
+      {
+        label: 'Extra above minimum',
+        value: extraProcessSec > 0 ? formatClock(extraProcessSec) : 'None'
       },
       {
         label: 'Final monobath time',
-        value: formatMinutes(developSec),
+        value: formatClock(developSec),
         emphasis: 'strong'
       },
-      { label: 'Wash time', value: formatMinutes(washSec) },
-      { label: 'Agitation style', value: guidance.agitationLabel }
+      {
+        label: 'Wash flow',
+        value: washMode === 'minimal' ? 'Manual 5 / 10 / 20 + rinse' : formatClock(washSec)
+      }
     ],
     calculationTrace,
     mixAmounts: [],
+    blockingIssues,
     warnings,
     readinessChecklist: [
-      'Pre-mix the monobath and confirm temperature before start.',
-      'Have wash water ready before the timer begins.'
+      `Confirm ${film.label} is loaded and rated at ${rating?.isoLabel ?? 'the chosen ISO'} before you pour Df96.`,
+      `Bring the monobath to ${temperatureF}°F${cell ? ` / ${cell.temperatureC}°C` : ''} before you start the timer.`,
+      washMode === 'minimal'
+        ? 'Set up enough clean water to complete the 5 / 10 / 20 inversion wash sequence.'
+        : 'Have a full 5-minute archival wash ready before the monobath finishes.'
     ],
-    nextSteps: ['Use the chemistry log to note temperature drift, clearing, or longer finishing times.'],
+    nextSteps:
+      blockingIssues.length > 0
+        ? ['Adjust the film rating, temperature, or agitation until the combination matches the official Df96 chart.']
+        : [
+            'The live session will cue the official Df96 agitation pattern for the selected method.',
+            'Save the chemistry log after the run so reused Df96 units stay visible.'
+          ],
     inputSnapshot: values
   };
 }
@@ -1156,6 +1479,110 @@ export function normalizeInputState(
 
     if (typeof values?.extendBlixWithReuse !== 'boolean') {
       normalized.extendBlixWithReuse = false;
+    }
+  }
+
+  if (recipe.plannerId === 'df96') {
+    const legacyFilm =
+      typeof values?.filmName === 'string' ? getDf96FilmByLegacyName(values.filmName) : null;
+    const requestedFilmId = String(normalized.filmStock ?? '');
+    const resolvedFilm = getDf96FilmById(requestedFilmId);
+
+    if (requestedFilmId !== resolvedFilm.id || (!values?.filmStock && legacyFilm)) {
+      normalized.filmStock = legacyFilm?.id ?? resolvedFilm.id;
+    }
+
+    const rawChemistryState = String(normalized.chemistryState ?? 'fresh');
+    normalized.chemistryState =
+      rawChemistryState === 'reused' ? 'reused' : 'fresh';
+
+    const rawAgitationMode = String(normalized.agitationMode ?? '');
+    const legacyTemperatureF = Number(values?.temperatureF ?? normalized.temperatureF ?? 80);
+
+    if (
+      !('agitationMode' in (values ?? {})) ||
+      (rawAgitationMode !== 'constant' &&
+        rawAgitationMode !== 'intermittent' &&
+        rawAgitationMode !== 'minimal')
+    ) {
+      normalized.agitationMode =
+        legacyTemperatureF <= 72 ? 'minimal' : legacyTemperatureF <= 77 ? 'intermittent' : 'constant';
+    }
+
+    const selectedAgitation = String(normalized.agitationMode) as Df96AgitationMode;
+    const selectedTemperatureF = Number(normalized.temperatureF);
+
+    if (!getDf96MatrixCell(selectedTemperatureF, selectedAgitation)) {
+      normalized.temperatureF =
+        selectedAgitation === 'minimal'
+          ? '70'
+          : selectedAgitation === 'intermittent'
+            ? '75'
+            : '80';
+    }
+
+    const selectedFilm = getDf96FilmById(String(normalized.filmStock));
+    const selectedRatingChoice = String(normalized.ratingChoice ?? '');
+    const resolvedRating =
+      getDf96RatingOption(selectedFilm.id, selectedRatingChoice) ??
+      selectedFilm.ratingOptions.find((option) => option.band === 'normal') ??
+      selectedFilm.ratingOptions[0];
+
+    normalized.ratingChoice = resolvedRating.id;
+
+    if (normalized.chemistryState === 'reused') {
+      const processedUnits = Number(normalized.processedUnits);
+      normalized.processedUnits =
+        Number.isFinite(processedUnits) && processedUnits > 0 ? Math.round(processedUnits) : 1;
+    }
+
+    if (typeof normalized.washMode !== 'string' || !['standard', 'minimal'].includes(normalized.washMode)) {
+      normalized.washMode = 'standard';
+    }
+
+    const currentWashSec = Number(normalized.washSec);
+    normalized.washSec =
+      Number.isFinite(currentWashSec) && currentWashSec > 0
+        ? currentWashSec
+        : DF96_STANDARD_WASH_DEFAULT_SEC;
+
+    const currentExtraProcessSec = Number(normalized.extraProcessSec);
+    normalized.extraProcessSec =
+      Number.isFinite(currentExtraProcessSec) && currentExtraProcessSec >= 0
+        ? currentExtraProcessSec
+        : 0;
+
+    const rawLegacyDevelopSec = Number(values?.developSec);
+
+    if (
+      (!('extraProcessSec' in (values ?? {})) || values?.extraProcessSec === undefined) &&
+      Number.isFinite(rawLegacyDevelopSec) &&
+      rawLegacyDevelopSec > 0
+    ) {
+      const normalizedCell = getDf96MatrixCell(
+        Number(normalized.temperatureF),
+        String(normalized.agitationMode),
+      );
+      const normalizedRating = getDf96RatingOption(
+        selectedFilm.id,
+        String(normalized.ratingChoice),
+      );
+
+      if (normalizedCell && normalizedRating) {
+        const legacyMinimumSec = Math.min(
+          DF96_MAX_REUSE_TIME_SEC,
+          Math.round(
+            (normalizedCell.baseTimeSec +
+              (normalizedRating.band === 'pull' ? DF96_PULL_BAND_EXTRA_SEC : 0)) *
+              normalizedRating.multiplier,
+          ) +
+            (normalized.chemistryState === 'reused'
+              ? Number(normalized.processedUnits) * DF96_REUSE_STEP_SEC
+              : 0),
+        );
+
+        normalized.extraProcessSec = Math.max(0, rawLegacyDevelopSec - legacyMinimumSec);
+      }
     }
   }
 

@@ -91,6 +91,25 @@ export function PlanReview({
         </div>
       </section>
 
+      {plan.blockingIssues.length > 0 ? (
+        <section className="capacity-banner capacity-danger stack" aria-live="polite">
+          <div className="panel-heading panel-heading--tight">
+            <h3>
+              <span className="title-with-icon title-with-icon--compact">
+                <WarningIcon aria-hidden="true" />
+                <span>Start blocked</span>
+              </span>
+            </h3>
+            <p>Adjust the setup until it matches an official supported combination.</p>
+          </div>
+          <ul className="bullet-list">
+            {plan.blockingIssues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <div className="plan-grid">
         <section className="panel stack">
           <div className="panel-heading">
@@ -286,7 +305,7 @@ export function PlanReview({
               <div className="timeline-step__content">
                 <div className="timeline-step__topline">
                   <strong>{phase.label}</strong>
-                  <span>{formatDuration(phase.durationSec)}</span>
+                  <span>{phase.timerMode === 'manual' ? 'Manual' : formatDuration(phase.durationSec)}</span>
                 </div>
                 <p>{phase.detail}</p>
               </div>
@@ -338,10 +357,15 @@ export function PlanReview({
             <span>Save preset</span>
           </span>
         </button>
-        <button type="button" className="primary-button" onClick={onStartSession}>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={onStartSession}
+          disabled={plan.blockingIssues.length > 0}
+        >
           <span className="button-label">
             <PlayIcon aria-hidden="true" />
-            <span>Start session</span>
+            <span>{plan.blockingIssues.length > 0 ? 'Unsupported combo' : 'Start session'}</span>
           </span>
         </button>
       </div>
