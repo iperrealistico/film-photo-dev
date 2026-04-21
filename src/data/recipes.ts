@@ -515,6 +515,8 @@ export const recipes: RecipeDefinition[] = [
         type: 'select',
         section: 'film',
         defaultValue: 'hp5_plus',
+        helperText:
+          'Pick the film row that best matches the official Df96 chart. Special-case stocks keep their own timing notes through the chosen rating and workflow.',
         options: df96Films.map((film) => ({
           value: film.id,
           label: film.label,

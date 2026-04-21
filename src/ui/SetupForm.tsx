@@ -129,25 +129,6 @@ export function SetupForm({ recipe, plan, values, onChange }: SetupFormProps) {
         <p>{recipe.description}</p>
       </div>
 
-      {plan.blockingIssues.length > 0 ? (
-        <section className="capacity-banner capacity-danger stack" aria-live="polite">
-          <div className="panel-heading panel-heading--tight">
-            <h3>
-              <span className="title-with-icon title-with-icon--compact">
-                <WarningIcon aria-hidden="true" />
-                <span>Unsupported right now</span>
-              </span>
-            </h3>
-            <p>This combination does not match the official source data yet.</p>
-          </div>
-          <ul className="bullet-list">
-            {plan.blockingIssues.map((issue) => (
-              <li key={issue}>{issue}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {sectionOrder.map((section) => {
         const SectionIcon = section.icon;
         const liveHc110Warning =

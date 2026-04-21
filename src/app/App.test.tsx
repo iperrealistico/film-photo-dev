@@ -327,10 +327,17 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
     await user.selectOptions(screen.getByLabelText(/Monobath temperature/i), '65');
+
+    const setupIssues = screen.getByRole('region', { name: /Setup issues/i });
+    expect(
+      within(setupIssues).getByRole('heading', { name: /Unsupported right now/i }),
+    ).toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: /Review plan/i }));
 
     expect(await screen.findByText(/Start blocked/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Unsupported combo/i })).toBeDisabled();
+    expect(screen.queryByRole('region', { name: /Setup issues/i })).not.toBeInTheDocument();
   });
 
   it('shows DF96 workflow controls together and explains reuse units like Cs41', async () => {
@@ -339,6 +346,12 @@ describe('App', () => {
     render(<App />);
 
     await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+
+    expect(
+      screen.getByText(
+        /Pick the film row that best matches the official Df96 chart\./i,
+      ),
+    ).toBeInTheDocument();
 
     const workflowHeading = screen.getByRole('heading', { name: /^Workflow$/i });
     const workflowSection = workflowHeading.closest('section');

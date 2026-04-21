@@ -328,6 +328,24 @@ button {
   gap: 1.35rem;
 }
 
+.setup-warning-flyover {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + clamp(5.5rem, 11vw, 6.8rem));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 2rem), calc(var(--app-frame-max) - 2rem));
+  z-index: 8;
+  pointer-events: none;
+}
+
+.setup-warning-flyover .capacity-banner {
+  pointer-events: auto;
+  box-shadow:
+    0 20px 52px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+}
+
 .app-meta {
   margin-top: 0.4rem;
   padding-bottom: 0.35rem;
@@ -1483,6 +1501,12 @@ button {
 .app-shell.is-ultrared .plan-banner,
 .app-shell.is-ultrared .toast {
   box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.14), 0 18px 60px rgba(0, 0, 0, 0.88);
+}
+
+.app-shell.is-ultrared .setup-warning-flyover .capacity-banner {
+  box-shadow:
+    0 0 0 1px rgba(255, 0, 0, 0.14),
+    0 18px 60px rgba(0, 0, 0, 0.88);
 }
 
 .app-shell.is-ultrared .bottom-nav {

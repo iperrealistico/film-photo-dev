@@ -57,7 +57,8 @@ import {
   FlaskIcon,
   ShieldIcon,
   SlidersIcon,
-  SunIcon
+  SunIcon,
+  WarningIcon
 } from '../ui/icons';
 import { PlanReview } from '../ui/PlanReview';
 import { RecipeBrowser } from '../ui/RecipeBrowser';
@@ -1319,6 +1320,30 @@ export function App() {
 
             {screen === 'setup' ? (
               <section className="stack">
+                {draftPlan.blockingIssues.length > 0 ? (
+                  <section
+                    className="setup-warning-flyover"
+                    aria-label="Setup issues"
+                    aria-live="polite"
+                  >
+                    <div className="capacity-banner capacity-danger stack">
+                      <div className="panel-heading panel-heading--tight">
+                        <h3>
+                          <span className="title-with-icon title-with-icon--compact">
+                            <WarningIcon aria-hidden="true" />
+                            <span>Unsupported right now</span>
+                          </span>
+                        </h3>
+                        <p>This combination does not match the official source data yet.</p>
+                      </div>
+                      <ul className="bullet-list">
+                        {draftPlan.blockingIssues.map((issue) => (
+                          <li key={issue}>{issue}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                ) : null}
                 <SetupForm
                   recipe={selectedRecipe}
                   plan={draftPlan}
