@@ -174,6 +174,30 @@ describe('session planning', () => {
     ).toBe(true);
   });
 
+  it('keeps HC-110 continuous agitation reminders alive through the whole developer step', () => {
+    const recipe = recipes.find((entry) => entry.id === 'kodak-hc110');
+
+    if (!recipe) {
+      throw new Error('Missing HC-110 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        agitationMode: 'continuous'
+      },
+      defaultAlertProfiles[0],
+    );
+
+    const developerPhase = plan.phaseList.find((phase) => phase.label === 'Developer');
+
+    expect(developerPhase?.cueEvents[0]?.label).toBe('Start continuous agitation');
+    expect(developerPhase?.cueEvents.at(-1)?.label).toBe('Keep agitation moving');
+    expect(developerPhase?.cueEvents.at(-1)?.atSec).toBe((developerPhase?.durationSec ?? 1) - 1);
+    expect(developerPhase?.cueEvents.length).toBeGreaterThan(2);
+  });
+
   it('uses 2% per processed unit for Cs41 weakened developer while keeping blix fixed by default', () => {
     const recipe = recipes.find((entry) => entry.id === 'cs41-powder');
 
@@ -254,6 +278,30 @@ describe('session planning', () => {
 
     expect(plan.phaseList.find((phase) => phase.label === 'Developer')?.durationSec).toBe(223);
     expect(plan.phaseList.find((phase) => phase.label === 'Blix')?.durationSec).toBe(480);
+  });
+
+  it('keeps Cs41 continuous agitation reminders alive through the whole developer step', () => {
+    const recipe = recipes.find((entry) => entry.id === 'cs41-powder');
+
+    if (!recipe) {
+      throw new Error('Missing Cs41 recipe.');
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        agitationMode: 'continuous'
+      },
+      defaultAlertProfiles[0],
+    );
+
+    const developerPhase = plan.phaseList.find((phase) => phase.label === 'Developer');
+
+    expect(developerPhase?.cueEvents[0]?.label).toBe('Start continuous agitation');
+    expect(developerPhase?.cueEvents.at(-1)?.label).toBe('Keep agitation moving');
+    expect(developerPhase?.cueEvents.at(-1)?.atSec).toBe((developerPhase?.durationSec ?? 1) - 1);
+    expect(developerPhase?.cueEvents.length).toBeGreaterThan(2);
   });
 
   it('derives the DF96 minimum from the official matrix for a supported combo', () => {
@@ -411,13 +459,15 @@ describe('runtime recovery', () => {
       defaultAlertProfiles[0],
     );
     const active = {
-      ...createActiveSession(plan, 0),
+      ...createActiveSession(plan, 1_000),
       status: 'running' as const,
-      startEpochMs: 0
+      startEpochMs: 1_000
     };
-    const frame = deriveRuntimeFrame(plan, active, 90_000);
+    const frame = deriveRuntimeFrame(plan, active, 92_000);
 
     expect(frame.currentPhase?.label).toBe('Monobath');
     expect(frame.remainingInPhaseSec).toBeGreaterThan(0);
+    expect(frame.nextCue?.label).toBe('Keep agitation moving');
+    expect(frame.nextCueInSec).toBeGreaterThan(0);
   });
 });

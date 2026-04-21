@@ -218,6 +218,49 @@ function buildAgitationCueSeries(
   return cues;
 }
 
+function buildContinuousCueSeries(
+  phaseId: string,
+  durationSec: number,
+  startLabel: string,
+  reminderLabel: string,
+  repeatIntervalSec = 30,
+) {
+  const cues: CueEvent[] = [
+    {
+      id: `${phaseId}-continuous-start`,
+      atSec: 0,
+      label: startLabel,
+      style: 'strong'
+    }
+  ];
+
+  if (durationSec <= 1) {
+    return cues;
+  }
+
+  const finalCueAtSec = Math.max(1, durationSec - 1);
+
+  for (let cueAtSec = repeatIntervalSec; cueAtSec < durationSec; cueAtSec += repeatIntervalSec) {
+    cues.push({
+      id: `${phaseId}-continuous-${cueAtSec}`,
+      atSec: Math.min(finalCueAtSec, cueAtSec),
+      label: reminderLabel,
+      style: 'soft'
+    });
+  }
+
+  if (cues.at(-1)?.atSec !== finalCueAtSec) {
+    cues.push({
+      id: `${phaseId}-continuous-final`,
+      atSec: finalCueAtSec,
+      label: reminderLabel,
+      style: 'soft'
+    });
+  }
+
+  return cues;
+}
+
 function buildPhase(
   id: string,
   label: string,
@@ -446,14 +489,12 @@ function planCs41(
 
   const developerCues =
     agitationMode === 'continuous'
-      ? [
-          {
-            id: 'developer-continuous-check',
-            atSec: Math.min(30, Math.max(1, developerSec - 1)),
-            label: 'Keep agitation moving',
-            style: 'soft' as const
-          }
-        ]
+      ? buildContinuousCueSeries(
+          'developer',
+          developerSec,
+          'Start continuous agitation',
+          'Keep agitation moving',
+        )
       : ([
           {
             id: 'developer-initial-window-end',
@@ -758,14 +799,12 @@ function planHc110(
 
   const developerCues =
     agitationMode === 'continuous'
-      ? [
-          {
-            id: 'developer-check',
-            atSec: Math.min(30, Math.max(1, developerSec - 1)),
-            label: 'Keep agitation moving',
-            style: 'soft' as const
-          }
-        ]
+      ? buildContinuousCueSeries(
+          'developer',
+          developerSec,
+          'Start continuous agitation',
+          'Keep agitation moving',
+        )
       : buildAgitationCueSeries(
           'developer',
           developerSec,
@@ -1060,20 +1099,12 @@ function buildDf96AgitationCues(
   leadSec: number,
 ) {
   if (agitationMode === 'constant') {
-    return [
-      {
-        id: `${phaseId}-constant-start`,
-        atSec: 0,
-        label: 'Start constant agitation',
-        style: 'strong' as const
-      },
-      {
-        id: `${phaseId}-constant-reminder`,
-        atSec: Math.max(1, Math.min(durationSec - 1, 30)),
-        label: 'Keep agitation moving',
-        style: 'soft' as const
-      }
-    ];
+    return buildContinuousCueSeries(
+      phaseId,
+      durationSec,
+      'Start constant agitation',
+      'Keep agitation moving',
+    );
   }
 
   const cues: CueEvent[] = [

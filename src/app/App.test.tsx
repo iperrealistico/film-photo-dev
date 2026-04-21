@@ -420,6 +420,30 @@ describe('App', () => {
     expect(screen.getByText(/manual on purpose/i)).toBeInTheDocument();
   }, 10000);
 
+  it('keeps DF96 constant-agitation cues active past the first 30 seconds', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole('button', { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(screen.getByText(/Keep agitation moving in 29s/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No more cues in this step/i)).not.toBeInTheDocument();
+  }, 10000);
+
   it('scrolls back to the top when switching screens', async () => {
     const user = userEvent.setup();
     const scrollToSpy = vi.mocked(window.scrollTo);
