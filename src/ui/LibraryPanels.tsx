@@ -85,6 +85,7 @@ interface SettingsPanelProps {
   onToggleAnimations: () => void;
   onToggleButtonSounds: () => void;
   onToggleSpeechPrompts: () => void;
+  onToggleAdditionalSpeechPrompts: () => void;
   onSetSpeechPromptRate: (nextValue: number) => void;
   onSetSpeechPromptVolume: (nextValue: number) => void;
   onSetSessionStartCountdown: (nextValue: number) => void;
@@ -149,6 +150,7 @@ export function SettingsPanel({
   onToggleAnimations,
   onToggleButtonSounds,
   onToggleSpeechPrompts,
+  onToggleAdditionalSpeechPrompts,
   onSetSpeechPromptRate,
   onSetSpeechPromptVolume,
   onSetSessionStartCountdown,
@@ -345,6 +347,26 @@ export function SettingsPanel({
           </span>
           <strong>{preferences.speechPromptsEnabled ? "On" : "Off"}</strong>
         </button>
+        <div className="stack compact-stack">
+          <button
+            type="button"
+            className="toggle-button"
+            onClick={onToggleAdditionalSpeechPrompts}
+          >
+            <span className="button-label">
+              <SpeakerIcon aria-hidden="true" />
+              <span>Additional voice prompts</span>
+            </span>
+            <strong>
+              {preferences.additionalSpeechPromptsEnabled ? "On" : "Off"}
+            </strong>
+          </button>
+          <span className="field-help">
+            Adds a few extra spoken reminders for blocked review screens,
+            recovered sessions, and step-confirmation waits. Uses the same
+            offline clips, speed, and volume as the main voice prompts.
+          </span>
+        </div>
         <label className="field-shell">
           <span className="field-label">
             Voice speed

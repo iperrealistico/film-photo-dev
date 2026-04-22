@@ -77,6 +77,7 @@ import { SetupForm } from "../ui/SetupForm";
 import { ThemeModeWarningDialog } from "../ui/ThemeModeWarningDialog";
 import * as sessionAudio from "./sessionAudio";
 import {
+  getAdditionalVoicePromptById,
   playSessionNoticeVoice,
   resolveCompletedSessionNotice,
   resolveCueNotice,
@@ -285,7 +286,11 @@ export function App() {
   const lastSessionEventRef = useRef("");
   const lastTimedCueRef = useRef<CueEvent | null>(null);
   const lastSessionIdRef = useRef<string | null>(null);
+  const lastBlockedReviewPromptRef = useRef("");
+  const lastRecoveryPromptRef = useRef("");
+  const lastWaitPromptRef = useRef("");
   const openingPhaseNoticeShownRef = useRef<string | null>(null);
+  const pendingWaitPromptDelayAppMsRef = useRef(0);
   const noticeSequenceRef = useRef(0);
   const toastSequenceRef = useRef(0);
   const screenRef = useRef<Screen>("recipes");
@@ -449,6 +454,35 @@ export function App() {
         volume: preferences.speechPromptVolume,
       });
     }
+  }
+
+  function playAdditionalVoicePrompt(
+    promptId: "review_blocked" | "recovered_session" | "next_step_waiting",
+  ) {
+    if (
+      !preferences.speechPromptsEnabled ||
+      !preferences.additionalSpeechPromptsEnabled
+    ) {
+      return;
+    }
+
+    const spec = getAdditionalVoicePromptById(promptId);
+
+    logDebugEvent({
+      category: "runtime",
+      event: "additional_voice_prompt_played",
+      detail: {
+        promptId: spec.id,
+        headline: spec.headline,
+      },
+      recipeId: selectedRecipeId,
+      sessionId: activeSession?.sessionId,
+    });
+
+    void playSessionNoticeVoice(spec, {
+      playbackRate: preferences.speechPromptRate,
+      volume: preferences.speechPromptVolume,
+    });
   }
 
   function prepareSessionStartState(plan: SessionPlan, nowMs: number) {
@@ -920,6 +954,8 @@ export function App() {
     }
 
     if (shouldGateNextPhase) {
+      pendingWaitPromptDelayAppMsRef.current =
+        (currentPhaseNotice?.durationMs ?? 0) + 160;
       logUiEvent("phase_wait_requested", {
         phaseIndex: runtimeFrame.phaseIndex,
         phaseLabel: nextPhaseLabel,
@@ -1001,6 +1037,87 @@ export function App() {
     lastTimedCueRef.current = activeTimedCue;
   }, [activeSession, runtimeFrame]);
 
+  useEffect(() => {
+    if (
+      !preferences.speechPromptsEnabled ||
+      !preferences.additionalSpeechPromptsEnabled ||
+      screen !== "plan" ||
+      draftPlan.blockingIssues.length === 0
+    ) {
+      return;
+    }
+
+    const promptSignature = draftPlan.id;
+
+    if (lastBlockedReviewPromptRef.current === promptSignature) {
+      return;
+    }
+
+    lastBlockedReviewPromptRef.current = promptSignature;
+    playAdditionalVoicePrompt("review_blocked");
+  }, [
+    draftPlan.blockingIssues.length,
+    draftPlan.id,
+    screen,
+    preferences.additionalSpeechPromptsEnabled,
+    preferences.speechPromptsEnabled,
+  ]);
+
+  useEffect(() => {
+    if (
+      !preferences.speechPromptsEnabled ||
+      !preferences.additionalSpeechPromptsEnabled ||
+      !activeSession ||
+      activeSession.status !== "recovering"
+    ) {
+      return;
+    }
+
+    if (lastRecoveryPromptRef.current === activeSession.sessionId) {
+      return;
+    }
+
+    lastRecoveryPromptRef.current = activeSession.sessionId;
+    playAdditionalVoicePrompt("recovered_session");
+  }, [
+    activeSession,
+    preferences.additionalSpeechPromptsEnabled,
+    preferences.speechPromptsEnabled,
+  ]);
+
+  useEffect(() => {
+    if (
+      !preferences.speechPromptsEnabled ||
+      !preferences.additionalSpeechPromptsEnabled ||
+      !activeSession ||
+      activeSession.status !== "awaiting_phase_start"
+    ) {
+      return;
+    }
+
+    const promptSignature = `${activeSession.sessionId}:${runtimeFrame?.phaseIndex ?? -1}`;
+
+    if (lastWaitPromptRef.current === promptSignature) {
+      return;
+    }
+
+    lastWaitPromptRef.current = promptSignature;
+
+    const timeoutId = window.setTimeout(() => {
+      playAdditionalVoicePrompt("next_step_waiting");
+    }, getRealDelayMs(pendingWaitPromptDelayAppMsRef.current));
+
+    pendingWaitPromptDelayAppMsRef.current = 0;
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    activeSession,
+    runtimeFrame?.phaseIndex,
+    preferences.additionalSpeechPromptsEnabled,
+    preferences.speechPromptsEnabled,
+    effectiveGlobalTimeMultiplier,
+  ]);
+
   const diagnostics: DiagnosticBundle = {
     appVersion,
     recipeVersion,
@@ -1014,6 +1131,7 @@ export function App() {
       `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
       `speech-prompts:${preferences.speechPromptsEnabled}`,
+      `additional-speech-prompts:${preferences.additionalSpeechPromptsEnabled}`,
       `speech-rate:${preferences.speechPromptRate}`,
       `speech-volume:${preferences.speechPromptVolume}`,
       `session-start-countdown:${preferences.sessionStartCountdownSec}`,
@@ -1361,6 +1479,16 @@ export function App() {
     setPreferences((current) => ({
       ...current,
       speechPromptsEnabled: !current.speechPromptsEnabled,
+    }));
+  }
+
+  function handleToggleAdditionalSpeechPrompts() {
+    logUiEvent("additional_speech_prompts_toggled", {
+      nextValue: !preferences.additionalSpeechPromptsEnabled,
+    });
+    setPreferences((current) => ({
+      ...current,
+      additionalSpeechPromptsEnabled: !current.additionalSpeechPromptsEnabled,
     }));
   }
 
@@ -1763,6 +1891,9 @@ export function App() {
                 onToggleAnimations={handleToggleAnimations}
                 onToggleButtonSounds={handleToggleButtonSounds}
                 onToggleSpeechPrompts={handleToggleSpeechPrompts}
+                onToggleAdditionalSpeechPrompts={
+                  handleToggleAdditionalSpeechPrompts
+                }
                 onSetSpeechPromptRate={handleSetSpeechPromptRate}
                 onSetSpeechPromptVolume={handleSetSpeechPromptVolume}
                 onSetSessionStartCountdown={handleSetSessionStartCountdown}

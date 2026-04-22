@@ -341,9 +341,34 @@ export const sessionNoticeCatalog = {
   ),
 } as const;
 
+export const additionalVoicePromptCatalog = {
+  review_blocked: createNoticeSpec(
+    "review_blocked",
+    "Start blocked",
+    "Start blocked. Review the setup before starting.",
+    [],
+  ),
+  recovered_session: createNoticeSpec(
+    "recovered_session",
+    "Recovered session",
+    "Recovered session. Check the timer before continuing.",
+    [],
+  ),
+  next_step_waiting: createNoticeSpec(
+    "next_step_waiting",
+    "Next step waiting",
+    "Next step is waiting. Begin when ready.",
+    [],
+  ),
+} as const;
+
 export type SessionNoticeId = keyof typeof sessionNoticeCatalog;
 export type SessionNoticeSpec =
   (typeof sessionNoticeCatalog)[SessionNoticeId];
+export type AdditionalVoicePromptId = keyof typeof additionalVoicePromptCatalog;
+export type AdditionalVoicePromptSpec =
+  (typeof additionalVoicePromptCatalog)[AdditionalVoicePromptId];
+type AudioPromptSpec = SessionNoticeSpec | AdditionalVoicePromptSpec;
 
 const sessionStartCountdownNoticeIds = {
   1: "starting_in_1",
@@ -361,6 +386,12 @@ const sessionStartCountdownNoticeIds = {
 export const noticeAudioManifest = Object.fromEntries(
   Object.entries(sessionNoticeCatalog).map(([id, spec]) => [id, spec.audioPath]),
 ) as Record<SessionNoticeId, string>;
+export const additionalVoicePromptAudioManifest = Object.fromEntries(
+  Object.entries(additionalVoicePromptCatalog).map(([id, spec]) => [
+    id,
+    spec.audioPath,
+  ]),
+) as Record<AdditionalVoicePromptId, string>;
 
 const phaseNoticeIdByPhaseId: Partial<Record<string, SessionNoticeId>> = {
   "fill-presoak": "pour_pre_soak_water",
@@ -420,6 +451,10 @@ function isSessionNoticeId(value: string): value is SessionNoticeId {
 
 export function getSessionNoticeById(id: SessionNoticeId) {
   return sessionNoticeCatalog[id];
+}
+
+export function getAdditionalVoicePromptById(id: AdditionalVoicePromptId) {
+  return additionalVoicePromptCatalog[id];
 }
 
 export function resolveStartSessionNotice() {
@@ -499,7 +534,13 @@ export function listSessionNoticeCacheUrls() {
   return Object.values(noticeAudioManifest).map((path) => `./${path}`);
 }
 
-export function resolveSessionNoticeAudioUrl(spec: SessionNoticeSpec) {
+export function listAdditionalVoicePromptCacheUrls() {
+  return Object.values(additionalVoicePromptAudioManifest).map(
+    (path) => `./${path}`,
+  );
+}
+
+export function resolveSessionNoticeAudioUrl(spec: AudioPromptSpec) {
   return `${import.meta.env.BASE_URL}${spec.audioPath}`;
 }
 
@@ -514,7 +555,7 @@ export function stopSessionNoticeVoice() {
 }
 
 export async function playSessionNoticeVoice(
-  spec: SessionNoticeSpec,
+  spec: AudioPromptSpec,
   options?: {
     playbackRate?: number;
     volume?: number;

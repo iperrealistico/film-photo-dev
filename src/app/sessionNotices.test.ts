@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { CueEvent, PhaseDefinition } from "../domain/types";
 import {
+  additionalVoicePromptAudioManifest,
+  getAdditionalVoicePromptById,
+  listAdditionalVoicePromptCacheUrls,
   listSessionNoticeCacheUrls,
   noticeAudioManifest,
   resolveCueNotice,
@@ -106,6 +109,15 @@ describe("sessionNotices", () => {
     );
     expect(listSessionNoticeCacheUrls()).toContain(
       "./audio/notices/prepare-to-agitate.mp3",
+    );
+    expect(getAdditionalVoicePromptById("review_blocked").audioPath).toBe(
+      "audio/notices/review-blocked.mp3",
+    );
+    expect(additionalVoicePromptAudioManifest.recovered_session).toBe(
+      "audio/notices/recovered-session.mp3",
+    );
+    expect(listAdditionalVoicePromptCacheUrls()).toContain(
+      "./audio/notices/next-step-waiting.mp3",
     );
   });
 });

@@ -317,11 +317,19 @@ describe("App", () => {
         /Experimental: this may still behave unexpectedly around some step transitions\./i,
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    ).toHaveTextContent("Off");
     await user.click(
       screen.getByRole("button", { name: /Screen animations/i }),
     );
     await user.click(screen.getByRole("button", { name: /Button sounds/i }));
-    await user.click(screen.getByRole("button", { name: /Voice prompts/i }));
+    await user.click(
+      screen.getByRole("button", { name: /^Voice prompts(?:On|Off)$/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    );
     await user.click(
       screen.getByRole("button", { name: /Pause between steps/i }),
     );
@@ -333,8 +341,13 @@ describe("App", () => {
       screen.getByRole("button", { name: /Button sounds/i }),
     ).toHaveTextContent("Off");
     expect(
-      screen.getByRole("button", { name: /Voice prompts/i }),
+      screen.getByRole("button", {
+        name: /^Voice prompts(?:On|Off)$/i,
+      }),
     ).toHaveTextContent("Off");
+    expect(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    ).toHaveTextContent("On");
     expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
@@ -350,8 +363,13 @@ describe("App", () => {
       screen.getByRole("button", { name: /Button sounds/i }),
     ).toHaveTextContent("Off");
     expect(
-      screen.getByRole("button", { name: /Voice prompts/i }),
+      screen.getByRole("button", {
+        name: /^Voice prompts(?:On|Off)$/i,
+      }),
     ).toHaveTextContent("Off");
+    expect(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    ).toHaveTextContent("On");
     expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
@@ -383,7 +401,9 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /^Settings$/i }));
-    await user.click(screen.getByRole("button", { name: /Voice prompts/i }));
+    await user.click(
+      screen.getByRole("button", { name: /^Voice prompts(?:On|Off)$/i }),
+    );
     await user.click(screen.getByRole("button", { name: /^Recipes$/i }));
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
     await user.click(screen.getByRole("button", { name: /Review plan/i }));
@@ -393,6 +413,133 @@ describe("App", () => {
     });
 
     expect(voiceSpy.mock.calls).toHaveLength(enabledCallCount);
+  }, 10000);
+
+  it("plays the blocked-review voice prompt only when additional voice prompts are enabled", async () => {
+    const user = userEvent.setup();
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Recipes$/i }));
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "65",
+    );
+    await user.click(
+      within(screen.getByRole("region", { name: /Setup issues/i })).getByRole(
+        "button",
+        { name: /Ignore/i },
+      ),
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "70",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    expect(await screen.findByText(/Start blocked/i)).toBeInTheDocument();
+    expect(
+      voiceSpy.mock.calls.some(
+        ([spec]) => spec.id === "review_blocked",
+      ),
+    ).toBe(true);
+  });
+
+  it("plays the recovery voice prompt when additional voice prompts are enabled", async () => {
+    const user = userEvent.setup();
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_020_000);
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+    const recipeId = "kodak-hc110";
+    const recipe = getRecipeById(recipeId);
+    const plan = createSessionPlan(
+      recipeId,
+      createDefaultInputState(recipe),
+      defaultAlertProfiles[0],
+    );
+
+    storePreferences({ additionalSpeechPromptsEnabled: true });
+
+    const session = startSession(
+      createActiveSession(plan, 1_000_000),
+      1_000_000,
+    );
+    saveActiveSessionSnapshot(plan, {
+      ...session,
+      lastPersistedAtMs: 1_000_000,
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Recovered session/i }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        voiceSpy.mock.calls.some(
+          ([spec]) => spec.id === "recovered_session",
+        ),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole("button", { name: /^Continue$/i }));
+
+    nowSpy.mockRestore();
+  });
+
+  it("plays the waiting voice prompt after a gated phase change when additional voice prompts are enabled", async () => {
+    const user = userEvent.setup();
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Additional voice prompts/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Pause between steps/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Recipes$/i }));
+    await user.click(screen.getByRole("button", { name: /Cs41 powder kit/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400_000);
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Begin next step/i }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_500);
+    });
+
+    expect(
+      voiceSpy.mock.calls.some(
+        ([spec]) => spec.id === "next_step_waiting",
+      ),
+    ).toBe(true);
   }, 10000);
 
   it("uses the default 3-second start countdown before the timer begins", async () => {

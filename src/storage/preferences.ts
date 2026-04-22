@@ -20,6 +20,7 @@ export interface PreferenceState {
   animationsEnabled: boolean;
   buttonSoundsEnabled: boolean;
   speechPromptsEnabled: boolean;
+  additionalSpeechPromptsEnabled: boolean;
   speechPromptRate: number;
   speechPromptVolume: number;
   sessionStartCountdownSec: number;
@@ -40,6 +41,7 @@ interface LegacyPreferenceState {
   animationsEnabled?: boolean;
   buttonSoundsEnabled?: boolean;
   speechPromptsEnabled?: boolean;
+  additionalSpeechPromptsEnabled?: boolean;
   speechPromptRate?: number;
   speechPromptVolume?: number;
   sessionStartCountdownSec?: number;
@@ -58,6 +60,7 @@ const defaultLeftHanded = false;
 const defaultAnimationsEnabled = true;
 const defaultButtonSoundsEnabled = true;
 const defaultSpeechPromptsEnabled = true;
+const defaultAdditionalSpeechPromptsEnabled = false;
 const defaultSpeechPromptRate = 1.5;
 const defaultSpeechPromptVolume = 1;
 const defaultSessionStartCountdownSec = 3;
@@ -74,6 +77,7 @@ function createDefaultPreferences(nowMs = Date.now()): PreferenceState {
     animationsEnabled: defaultAnimationsEnabled,
     buttonSoundsEnabled: defaultButtonSoundsEnabled,
     speechPromptsEnabled: defaultSpeechPromptsEnabled,
+    additionalSpeechPromptsEnabled: defaultAdditionalSpeechPromptsEnabled,
     speechPromptRate: defaultSpeechPromptRate,
     speechPromptVolume: defaultSpeechPromptVolume,
     sessionStartCountdownSec: defaultSessionStartCountdownSec,
@@ -205,6 +209,9 @@ export function loadPreferences() {
         parsed.buttonSoundsEnabled ?? defaultButtonSoundsEnabled,
       speechPromptsEnabled:
         parsed.speechPromptsEnabled ?? defaultSpeechPromptsEnabled,
+      additionalSpeechPromptsEnabled:
+        parsed.additionalSpeechPromptsEnabled ??
+        defaultAdditionalSpeechPromptsEnabled,
       phaseConfirmationEnabled:
         parsed.phaseConfirmationEnabled ?? defaultPhaseConfirmationEnabled,
       diagnosticsOpen: parsed.diagnosticsOpen ?? defaultDiagnosticsOpen,
@@ -227,6 +234,8 @@ export function loadPreferences() {
         animationsEnabled: preferences.animationsEnabled,
         buttonSoundsEnabled: preferences.buttonSoundsEnabled,
         speechPromptsEnabled: preferences.speechPromptsEnabled,
+        additionalSpeechPromptsEnabled:
+          preferences.additionalSpeechPromptsEnabled,
         speechPromptRate: preferences.speechPromptRate,
         speechPromptVolume: preferences.speechPromptVolume,
         sessionStartCountdownSec: preferences.sessionStartCountdownSec,
@@ -264,6 +273,8 @@ export function savePreferences(preferences: PreferenceState) {
       animationsEnabled: preferences.animationsEnabled,
       buttonSoundsEnabled: preferences.buttonSoundsEnabled,
       speechPromptsEnabled: preferences.speechPromptsEnabled,
+      additionalSpeechPromptsEnabled:
+        preferences.additionalSpeechPromptsEnabled,
       speechPromptRate: preferences.speechPromptRate,
       speechPromptVolume: preferences.speechPromptVolume,
       sessionStartCountdownSec: preferences.sessionStartCountdownSec,
