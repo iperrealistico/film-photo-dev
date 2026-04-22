@@ -40,6 +40,19 @@ function resetClientStorage() {
   window.sessionStorage?.clear?.();
 }
 
+const preferencesStorageKey = "film-dev/preferences/v1";
+
+function storePreferences(partial: Record<string, unknown>) {
+  window.localStorage?.setItem(
+    preferencesStorageKey,
+    JSON.stringify(partial),
+  );
+}
+
+function disableSessionStartCountdown() {
+  storePreferences({ sessionStartCountdownSec: 0 });
+}
+
 describe("App", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -68,6 +81,7 @@ describe("App", () => {
     });
 
     resetClientStorage();
+    disableSessionStartCountdown();
     window.history.replaceState({}, "", "/");
     Object.defineProperty(window, "scrollTo", {
       configurable: true,
@@ -287,6 +301,7 @@ describe("App", () => {
 
     unmount();
     resetClientStorage();
+    disableSessionStartCountdown();
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /^Settings$/i }));
@@ -304,9 +319,10 @@ describe("App", () => {
     );
   }, 10000);
 
-  it("shows a fullscreen start notice and auto-dismisses it", async () => {
+  it("uses the default 3-second start countdown before the timer begins", async () => {
     const user = userEvent.setup();
 
+    resetClientStorage();
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
@@ -320,14 +336,62 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(/Start session/i);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Starting in 3 seconds/i,
+    );
+    expect(
+      screen.getByRole("button", { name: /Starting soon/i }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /Pause timer/i }),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_900);
+      await vi.advanceTimersByTimeAsync(2_500);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Starting in 3 seconds/i,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
     });
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Pause timer/i }),
+    ).toBeInTheDocument();
   }, 10000);
+
+  it("lets developers change the session start countdown in hidden settings", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/?debug=1");
+    const { unmount } = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+
+    const countdownInput = await screen.findByRole("textbox", {
+      name: /Session start countdown/i,
+    });
+
+    fireEvent.focus(countdownInput);
+    fireEvent.change(countdownInput, { target: { value: "5" } });
+    fireEvent.blur(countdownInput);
+
+    expect(countdownInput).toHaveValue("5");
+
+    unmount();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+
+    expect(
+      await screen.findByRole("textbox", {
+        name: /Session start countdown/i,
+      }),
+    ).toHaveValue("5");
+  });
 
   it("applies the large CTA treatment to the major session controls", async () => {
     const user = userEvent.setup();
@@ -349,6 +413,44 @@ describe("App", () => {
       "cta-button",
     );
     expect(screen.getByRole("button", { name: /End session/i })).toHaveClass(
+      "cta-button",
+    );
+  });
+
+  it("keeps the main navigation controls glove-sized while leaving settings compact", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: /^Home$/i })).toHaveClass(
+      "glove-button",
+    );
+    expect(
+      screen.getByRole("button", { name: /^Switch to Red safe$/i }),
+    ).toHaveClass("glove-button");
+    expect(screen.getByRole("button", { name: /^Recipes$/i })).toHaveClass(
+      "glove-button",
+    );
+
+    const settingsNavButton = screen.getByRole("button", { name: /^Settings$/i });
+    expect(settingsNavButton).toHaveClass("bottom-nav__button--compact");
+    expect(settingsNavButton).not.toHaveClass("glove-button");
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+
+    expect(screen.getByRole("button", { name: /Back to recipes/i })).toHaveClass(
+      "cta-button",
+    );
+    expect(screen.getByRole("button", { name: /Review plan/i })).toHaveClass(
+      "cta-button",
+    );
+
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    expect(screen.getByRole("button", { name: /Back to setup/i })).toHaveClass(
+      "cta-button",
+    );
+    expect(screen.getByRole("button", { name: /Save preset/i })).toHaveClass(
       "cta-button",
     );
   });
@@ -401,8 +503,7 @@ describe("App", () => {
 
   it("shows a fullscreen notice when the user stops a session", async () => {
     const user = userEvent.setup();
-
-    render(<App />);
+    const { container } = render(<App />);
 
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
     await user.click(screen.getByRole("button", { name: /Review plan/i }));
@@ -420,6 +521,21 @@ describe("App", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Session stopped/i);
+    expect(
+      screen.getByRole("button", { name: /Set up another session/i }),
+    ).toHaveClass("primary-button", "cta-button");
+
+    const currentPhasePill = container.querySelector(".phase-pill.is-current");
+    expect(currentPhasePill).not.toBeNull();
+    const frozenPhaseText = currentPhasePill?.textContent;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(container.querySelector(".phase-pill.is-current")?.textContent).toBe(
+      frozenPhaseText,
+    );
   }, 10000);
 
   it("shows a fullscreen notice when a session completes", async () => {
@@ -443,6 +559,9 @@ describe("App", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Session complete/i);
+    expect(
+      screen.getByRole("button", { name: /Set up another session/i }),
+    ).toHaveClass("primary-button", "cta-button");
   }, 10000);
 
   it("waits for manual confirmation before starting the next phase when pause-between-steps is enabled", async () => {
@@ -888,6 +1007,49 @@ describe("App", () => {
           Array.isArray(toneKinds) && toneKinds[0] === "phase_start",
       ),
     ).toBe(true);
+  }, 10000);
+
+  it("shows fullscreen start and stop notices for timed agitation windows", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Stop agitation/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(29_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Agitate for 10 sec/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Stop agitation/i);
   }, 10000);
 
   it("scrolls back to the top when switching screens", async () => {

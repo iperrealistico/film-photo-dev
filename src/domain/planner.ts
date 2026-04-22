@@ -521,6 +521,13 @@ function planCs41(
       : (
           [
             {
+              id: "developer-initial-window",
+              atSec: 0,
+              durationSec: developerGuidance.initialContinuousSec,
+              label: `Agitate continuously for ${developerGuidance.initialContinuousSec} sec`,
+              style: "strong" as const,
+            },
+            {
               id: "developer-initial-window-end",
               atSec: Math.min(
                 developerSec - 1,

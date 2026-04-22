@@ -16,6 +16,7 @@ export interface PreferenceState {
   animationsEnabled: boolean;
   buttonSoundsEnabled: boolean;
   speechPromptsEnabled: boolean;
+  sessionStartCountdownSec: number;
   phaseConfirmationEnabled: boolean;
   diagnosticsOpen: boolean;
   debugUnlocked: boolean;
@@ -29,6 +30,7 @@ interface LegacyPreferenceState {
   animationsEnabled?: boolean;
   buttonSoundsEnabled?: boolean;
   speechPromptsEnabled?: boolean;
+  sessionStartCountdownSec?: number;
   phaseConfirmationEnabled?: boolean;
   diagnosticsOpen?: boolean;
   debugUnlocked?: boolean;
@@ -41,10 +43,23 @@ const defaultPreferences: PreferenceState = {
   animationsEnabled: true,
   buttonSoundsEnabled: true,
   speechPromptsEnabled: false,
+  sessionStartCountdownSec: 3,
   phaseConfirmationEnabled: false,
   diagnosticsOpen: false,
   debugUnlocked: false
 };
+
+function resolveStoredSessionStartCountdownSec(
+  rawPreferences: LegacyPreferenceState,
+) {
+  const rawValue = rawPreferences.sessionStartCountdownSec;
+
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    return defaultPreferences.sessionStartCountdownSec;
+  }
+
+  return Math.min(10, Math.max(0, Math.round(rawValue)));
+}
 
 function resolveStoredThemeMode(rawPreferences: LegacyPreferenceState) {
   if (rawPreferences.themeMode) {
@@ -78,7 +93,8 @@ export function loadPreferences() {
     const preferences = {
       ...defaultPreferences,
       ...parsed,
-      themeMode: resolveStoredThemeMode(parsed)
+      themeMode: resolveStoredThemeMode(parsed),
+      sessionStartCountdownSec: resolveStoredSessionStartCountdownSec(parsed)
     } satisfies PreferenceState;
 
     logDebugEvent({
@@ -90,6 +106,7 @@ export function loadPreferences() {
         animationsEnabled: preferences.animationsEnabled,
         buttonSoundsEnabled: preferences.buttonSoundsEnabled,
         speechPromptsEnabled: preferences.speechPromptsEnabled,
+        sessionStartCountdownSec: preferences.sessionStartCountdownSec,
         phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
         diagnosticsOpen: preferences.diagnosticsOpen,
         debugUnlocked: preferences.debugUnlocked
@@ -122,6 +139,7 @@ export function savePreferences(preferences: PreferenceState) {
       animationsEnabled: preferences.animationsEnabled,
       buttonSoundsEnabled: preferences.buttonSoundsEnabled,
       speechPromptsEnabled: preferences.speechPromptsEnabled,
+      sessionStartCountdownSec: preferences.sessionStartCountdownSec,
       phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
       diagnosticsOpen: preferences.diagnosticsOpen,
       debugUnlocked: preferences.debugUnlocked

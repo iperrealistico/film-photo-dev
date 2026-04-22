@@ -25,6 +25,76 @@ export const sessionNoticeCatalog = {
     "Start session",
     ["phase_start"],
   ),
+  starting_in_1: createNoticeSpec(
+    "starting_in_1",
+    "Starting in 1 second",
+    "Starting in one second",
+    ["phase_start"],
+    1000,
+  ),
+  starting_in_2: createNoticeSpec(
+    "starting_in_2",
+    "Starting in 2 seconds",
+    "Starting in two seconds",
+    ["phase_start"],
+    2000,
+  ),
+  starting_in_3: createNoticeSpec(
+    "starting_in_3",
+    "Starting in 3 seconds",
+    "Starting in three seconds",
+    ["phase_start"],
+    3000,
+  ),
+  starting_in_4: createNoticeSpec(
+    "starting_in_4",
+    "Starting in 4 seconds",
+    "Starting in four seconds",
+    ["phase_start"],
+    4000,
+  ),
+  starting_in_5: createNoticeSpec(
+    "starting_in_5",
+    "Starting in 5 seconds",
+    "Starting in five seconds",
+    ["phase_start"],
+    5000,
+  ),
+  starting_in_6: createNoticeSpec(
+    "starting_in_6",
+    "Starting in 6 seconds",
+    "Starting in six seconds",
+    ["phase_start"],
+    6000,
+  ),
+  starting_in_7: createNoticeSpec(
+    "starting_in_7",
+    "Starting in 7 seconds",
+    "Starting in seven seconds",
+    ["phase_start"],
+    7000,
+  ),
+  starting_in_8: createNoticeSpec(
+    "starting_in_8",
+    "Starting in 8 seconds",
+    "Starting in eight seconds",
+    ["phase_start"],
+    8000,
+  ),
+  starting_in_9: createNoticeSpec(
+    "starting_in_9",
+    "Starting in 9 seconds",
+    "Starting in nine seconds",
+    ["phase_start"],
+    9000,
+  ),
+  starting_in_10: createNoticeSpec(
+    "starting_in_10",
+    "Starting in 10 seconds",
+    "Starting in ten seconds",
+    ["phase_start"],
+    10000,
+  ),
   session_complete: createNoticeSpec(
     "session_complete",
     "Session complete",
@@ -47,6 +117,69 @@ export const sessionNoticeCatalog = {
   invert_8: createNoticeSpec("invert_8", "Invert 8", "Invert eight", ["cue_soft"]),
   invert_9: createNoticeSpec("invert_9", "Invert 9", "Invert nine", ["cue_soft"]),
   invert_10: createNoticeSpec("invert_10", "Invert 10", "Invert ten", ["cue_soft"]),
+  start_continuous_agitation: createNoticeSpec(
+    "start_continuous_agitation",
+    "Start continuous agitation",
+    "Start continuous agitation",
+    ["cue_strong"],
+    1200,
+  ),
+  start_constant_agitation: createNoticeSpec(
+    "start_constant_agitation",
+    "Start constant agitation",
+    "Start constant agitation",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_continuously_60_sec: createNoticeSpec(
+    "agitate_continuously_60_sec",
+    "Agitate continuously for 60 sec",
+    "Agitate continuously for 60 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_continuously_30_sec: createNoticeSpec(
+    "agitate_continuously_30_sec",
+    "Agitate continuously for 30 sec",
+    "Agitate continuously for 30 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_continuously_10_sec: createNoticeSpec(
+    "agitate_continuously_10_sec",
+    "Agitate continuously for 10 sec",
+    "Agitate continuously for 10 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_gently_10_sec: createNoticeSpec(
+    "agitate_gently_10_sec",
+    "Agitate gently for 10 sec",
+    "Agitate gently for 10 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_10_sec: createNoticeSpec(
+    "agitate_10_sec",
+    "Agitate for 10 sec",
+    "Agitate for 10 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  agitate_gently_5_sec: createNoticeSpec(
+    "agitate_gently_5_sec",
+    "Agitate gently for 5 sec",
+    "Agitate gently for 5 seconds",
+    ["cue_strong"],
+    1200,
+  ),
+  stop_agitation: createNoticeSpec(
+    "stop_agitation",
+    "Stop agitation",
+    "Stop agitation",
+    ["cue_soft"],
+    1000,
+  ),
   pre_soak: createNoticeSpec("pre_soak", "Pre-soak", "Pre-soak", ["phase_start"]),
   developer: createNoticeSpec("developer", "Developer", "Developer", ["phase_start"]),
   transition_to_blix: createNoticeSpec(
@@ -146,6 +279,19 @@ export type SessionNoticeId = keyof typeof sessionNoticeCatalog;
 export type SessionNoticeSpec =
   (typeof sessionNoticeCatalog)[SessionNoticeId];
 
+const sessionStartCountdownNoticeIds = {
+  1: "starting_in_1",
+  2: "starting_in_2",
+  3: "starting_in_3",
+  4: "starting_in_4",
+  5: "starting_in_5",
+  6: "starting_in_6",
+  7: "starting_in_7",
+  8: "starting_in_8",
+  9: "starting_in_9",
+  10: "starting_in_10",
+} as const satisfies Record<number, SessionNoticeId>;
+
 export const noticeAudioManifest = Object.fromEntries(
   Object.entries(sessionNoticeCatalog).map(([id, spec]) => [id, spec.audioPath]),
 ) as Record<SessionNoticeId, string>;
@@ -177,6 +323,17 @@ const phaseNoticeIdByPhaseId: Partial<Record<string, SessionNoticeId>> = {
   "wash-minimal-4": "final_rinse",
 };
 
+const cueNoticeIdByLabel: Partial<Record<string, SessionNoticeId>> = {
+  "Start continuous agitation": "start_continuous_agitation",
+  "Start constant agitation": "start_constant_agitation",
+  "Agitate continuously for 60 sec": "agitate_continuously_60_sec",
+  "Agitate continuously for 30 sec": "agitate_continuously_30_sec",
+  "Agitate continuously for 10 sec": "agitate_continuously_10_sec",
+  "Agitate gently for 10 sec": "agitate_gently_10_sec",
+  "Agitate for 10 sec": "agitate_10_sec",
+  "Agitate gently for 5 sec": "agitate_gently_5_sec",
+};
+
 let activeVoiceAudio: HTMLAudioElement | null = null;
 
 export function getSessionNoticeById(id: SessionNoticeId) {
@@ -185,6 +342,15 @@ export function getSessionNoticeById(id: SessionNoticeId) {
 
 export function resolveStartSessionNotice() {
   return getSessionNoticeById("start_session");
+}
+
+export function resolveSessionStartCountdownNotice(countdownSec: number) {
+  const roundedCountdown = Math.min(10, Math.max(1, Math.round(countdownSec)));
+  return getSessionNoticeById(
+    sessionStartCountdownNoticeIds[
+      roundedCountdown as keyof typeof sessionStartCountdownNoticeIds
+    ],
+  );
 }
 
 export function resolveCompletedSessionNotice() {
@@ -210,10 +376,21 @@ export function resolveCueNotice(cue: CueEvent | null | undefined) {
   const match = /^Invert (10|[1-9])$/.exec(cue.label);
 
   if (!match) {
-    return null;
+    const noticeId = cueNoticeIdByLabel[cue.label];
+    return noticeId ? getSessionNoticeById(noticeId) : null;
   }
 
   return getSessionNoticeById(`invert_${match[1]}` as SessionNoticeId);
+}
+
+export function resolveTimedCueEndNotice(cue: CueEvent | null | undefined) {
+  if (!cue?.durationSec || cue.durationSec <= 0) {
+    return null;
+  }
+
+  return cueNoticeIdByLabel[cue.label]
+    ? getSessionNoticeById("stop_agitation")
+    : null;
 }
 
 export function listSessionNoticeCacheUrls() {

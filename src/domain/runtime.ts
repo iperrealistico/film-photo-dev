@@ -32,6 +32,7 @@ export function createActiveSession(plan: SessionPlan, nowMs: number) {
     planId: plan.id,
     status: "ready" as SessionStatus,
     startEpochMs: null,
+    scheduledStartAtMs: null,
     pauseStartedAtMs: null,
     totalPausedMs: 0,
     createdAtMs: nowMs,
@@ -82,6 +83,7 @@ export function startSession(state: ActiveSessionState, nowMs: number) {
       ...state,
       status: "running",
       startEpochMs: nowMs,
+      scheduledStartAtMs: null,
       lastPersistedAtMs: nowMs,
     },
     "started",
@@ -256,6 +258,13 @@ export function markPersisted(state: ActiveSessionState, nowMs: number) {
 function getEffectiveElapsedMs(state: ActiveSessionState, nowMs: number) {
   if (!state.startEpochMs) {
     return 0;
+  }
+
+  if (state.status === "completed" || state.status === "aborted") {
+    return Math.max(
+      0,
+      state.lastPersistedAtMs - state.startEpochMs - state.totalPausedMs,
+    );
   }
 
   const activeNowMs =

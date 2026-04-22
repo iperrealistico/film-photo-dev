@@ -37,6 +37,7 @@ import {
 } from "../domain/runtime";
 import type {
   ActiveSessionState,
+  CueEvent,
   DebugLogEntry,
   DebugLogStats,
   DiagnosticBundle,
@@ -71,8 +72,10 @@ import {
   resolveCompletedSessionNotice,
   resolveCueNotice,
   resolvePhaseNotice,
+  resolveSessionStartCountdownNotice,
   resolveStartSessionNotice,
   resolveStoppedSessionNotice,
+  resolveTimedCueEndNotice,
   stopSessionNoticeVoice,
   type SessionNoticeSpec,
 } from "./sessionNotices";
@@ -202,6 +205,10 @@ function getInitialPreferences() {
   return preferences;
 }
 
+function clampSessionStartCountdownSec(value: number) {
+  return Math.min(10, Math.max(0, Math.round(value)));
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>("recipes");
   const [aboutReturnScreen, setAboutReturnScreen] = useState<Screen>("recipes");
@@ -232,6 +239,7 @@ export function App() {
   const lastCueRef = useRef("");
   const lastPhaseRef = useRef("");
   const lastSessionEventRef = useRef("");
+  const lastTimedCueRef = useRef<CueEvent | null>(null);
   const lastSessionIdRef = useRef<string | null>(null);
   const noticeTimeoutRef = useRef<number | null>(null);
   const noticeSequenceRef = useRef(0);
@@ -383,6 +391,30 @@ export function App() {
         current?.sequence === sequence ? null : current,
       );
     }, spec.durationMs);
+  }
+
+  function prepareSessionStartState(plan: SessionPlan, nowMs: number) {
+    const countdownSec = clampSessionStartCountdownSec(
+      preferences.sessionStartCountdownSec,
+    );
+    const session = createActiveSession(plan, nowMs);
+
+    if (countdownSec > 0) {
+      return {
+        countdownSec,
+        session: {
+          ...session,
+          scheduledStartAtMs: nowMs + countdownSec * 1000,
+        },
+        notice: resolveSessionStartCountdownNotice(countdownSec),
+      };
+    }
+
+    return {
+      countdownSec,
+      session: beginSessionState(session, nowMs),
+      notice: resolveStartSessionNotice(),
+    };
   }
 
   async function syncDebugState(reason: string) {
@@ -580,7 +612,11 @@ export function App() {
   }, [activePlan, activeSession]);
 
   useEffect(() => {
-    if (!activeSession) {
+    if (
+      !activeSession ||
+      activeSession.status === "completed" ||
+      activeSession.status === "aborted"
+    ) {
       return undefined;
     }
 
@@ -603,6 +639,7 @@ export function App() {
     lastCueRef.current = "";
     lastPhaseRef.current = "";
     lastSessionEventRef.current = "";
+    lastTimedCueRef.current = null;
 
     if (previousSessionId) {
       setActiveNotice(null);
@@ -616,7 +653,42 @@ export function App() {
   }, [activeSession?.sessionId]);
 
   useEffect(() => {
+    if (
+      !activeSession ||
+      activeSession.status !== "ready" ||
+      !activeSession.scheduledStartAtMs
+    ) {
+      return undefined;
+    }
+
+    const sessionId = activeSession.sessionId;
+    const scheduledStartAtMs = activeSession.scheduledStartAtMs;
+    const delayMs = Math.max(0, scheduledStartAtMs - Date.now());
+    const timeout = window.setTimeout(() => {
+      setActiveSession((current) => {
+        if (
+          !current ||
+          current.sessionId !== sessionId ||
+          current.status !== "ready" ||
+          !current.scheduledStartAtMs
+        ) {
+          return current;
+        }
+
+        return beginSessionState(current, scheduledStartAtMs);
+      });
+    }, delayMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    activeSession?.scheduledStartAtMs,
+    activeSession?.sessionId,
+    activeSession?.status,
+  ]);
+
+  useEffect(() => {
     if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
+      lastTimedCueRef.current = null;
       return;
     }
 
@@ -763,13 +835,45 @@ export function App() {
     });
 
     const cueNotice = resolveCueNotice(exactCue);
+    const shouldSuppressInitialCueNotice =
+      cueNotice &&
+      exactCue.atSec === 0 &&
+      runtimeFrame.phaseIndex === 0 &&
+      runtimeFrame.elapsedInPhaseSec === 0 &&
+      activeSession.eventLog.at(-1)?.type === "started";
 
-    if (cueNotice) {
+    if (cueNotice && !shouldSuppressInitialCueNotice) {
       showSessionNotice(cueNotice);
     }
 
     lastCueRef.current = cueSignalId;
   }, [alertProfile, activeSession, runtimeFrame, selectedRecipeId]);
+
+  useEffect(() => {
+    if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
+      lastTimedCueRef.current = null;
+      return;
+    }
+
+    const activeTimedCue =
+      runtimeFrame.activeCue?.durationSec && runtimeFrame.activeCue.durationSec > 0
+        ? runtimeFrame.activeCue
+        : null;
+    const previousTimedCue = lastTimedCueRef.current;
+
+    if (
+      previousTimedCue &&
+      (!activeTimedCue || activeTimedCue.id !== previousTimedCue.id)
+    ) {
+      const timedCueEndNotice = resolveTimedCueEndNotice(previousTimedCue);
+
+      if (timedCueEndNotice) {
+        showSessionNotice(timedCueEndNotice);
+      }
+    }
+
+    lastTimedCueRef.current = activeTimedCue;
+  }, [activeSession, runtimeFrame]);
 
   const diagnostics: DiagnosticBundle = {
     appVersion,
@@ -784,6 +888,7 @@ export function App() {
       `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
       `speech-prompts:${preferences.speechPromptsEnabled}`,
+      `session-start-countdown:${preferences.sessionStartCountdownSec}`,
       `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
       `debug-unlocked:${preferences.debugUnlocked}`,
@@ -898,7 +1003,10 @@ export function App() {
     }
 
     const now = Date.now();
-    const session = beginSessionState(createActiveSession(draftPlan, now), now);
+    const { countdownSec, session, notice } = prepareSessionStartState(
+      draftPlan,
+      now,
+    );
 
     logPlannerEvent("plan_committed_to_session", draftPlan, {
       screen,
@@ -910,6 +1018,7 @@ export function App() {
       detail: {
         recipeId: selectedRecipe.id,
         planId: draftPlan.id,
+        countdownSec,
       },
       recipeId: selectedRecipe.id,
       sessionId: session.sessionId,
@@ -917,7 +1026,7 @@ export function App() {
     setActivePlan(draftPlan);
     setActiveSession(session);
     transitionToScreen("session", "forward");
-    showSessionNotice(resolveStartSessionNotice());
+    showSessionNotice(notice);
   }
 
   async function handleCopyDiagnostics() {
@@ -1107,6 +1216,18 @@ export function App() {
     }));
   }
 
+  function handleSetSessionStartCountdown(nextValue: number) {
+    const resolvedValue = clampSessionStartCountdownSec(nextValue);
+
+    logUiEvent("session_start_countdown_changed", {
+      nextValue: resolvedValue,
+    });
+    setPreferences((current) => ({
+      ...current,
+      sessionStartCountdownSec: resolvedValue,
+    }));
+  }
+
   function handleTogglePhaseConfirmation() {
     logUiEvent("phase_confirmation_toggled", {
       nextValue: !preferences.phaseConfirmationEnabled,
@@ -1225,7 +1346,7 @@ export function App() {
           <div className="topbar__slot topbar__slot--nav">
             <button
               type="button"
-              className="topbar-action topbar-action--nav"
+              className="topbar-action topbar-action--nav glove-button"
               onClick={handleTopbarBack}
               disabled={!showBackButton}
             >
@@ -1254,7 +1375,7 @@ export function App() {
           <div className="topbar__slot topbar__slot--tools">
             <button
               type="button"
-              className="topbar-action topbar-action--theme"
+              className="topbar-action topbar-action--theme glove-button"
               aria-label={quickThemeLabel}
               onClick={handleQuickThemeToggle}
             >
@@ -1291,10 +1412,10 @@ export function App() {
                   values={selectedDraft}
                   onChange={updateDraft}
                 />
-                <div className="action-row">
+                <div className="action-row action-row--glove">
                   <button
                     type="button"
-                    className="secondary-button"
+                    className="secondary-button cta-button"
                     onClick={() => transitionToScreen("recipes", "back")}
                   >
                     <span className="button-label">
@@ -1304,7 +1425,7 @@ export function App() {
                   </button>
                   <button
                     type="button"
-                    className="primary-button"
+                    className="primary-button cta-button"
                     onClick={() => handleNavigate("plan")}
                   >
                     <span className="button-label">
@@ -1345,7 +1466,11 @@ export function App() {
                   logUiEvent("session_started_from_console");
                   showSessionNotice(resolveStartSessionNotice());
                   setActiveSession((current) =>
-                    current ? beginSessionState(current, Date.now()) : current,
+                    current &&
+                    current.status === "ready" &&
+                    !current.scheduledStartAtMs
+                      ? beginSessionState(current, Date.now())
+                      : current,
                   );
                 }}
                 onPause={() => {
@@ -1425,6 +1550,7 @@ export function App() {
                 onToggleAnimations={handleToggleAnimations}
                 onToggleButtonSounds={handleToggleButtonSounds}
                 onToggleSpeechPrompts={handleToggleSpeechPrompts}
+                onSetSessionStartCountdown={handleSetSessionStartCountdown}
                 onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
                 onExportPresets={handleExportPresets}
@@ -1512,7 +1638,14 @@ export function App() {
                   <button
                     key={item.screen}
                     type="button"
-                    className={screen === item.screen ? "is-active" : ""}
+                    className={[
+                      screen === item.screen ? "is-active" : "",
+                      item.screen === "settings"
+                        ? "bottom-nav__button--compact"
+                        : "glove-button",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     onClick={() => handleNavigate(item.screen)}
                   >
                     <span className="nav-button__content">

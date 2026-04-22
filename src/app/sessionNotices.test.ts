@@ -5,7 +5,9 @@ import {
   noticeAudioManifest,
   resolveCueNotice,
   resolvePhaseNotice,
+  resolveSessionStartCountdownNotice,
   resolveStartSessionNotice,
+  resolveTimedCueEndNotice,
 } from "./sessionNotices";
 
 function createPhase(id: string, label: string): PhaseDefinition {
@@ -30,12 +32,19 @@ describe("sessionNotices", () => {
     expect(resolvePhaseNotice(createPhase("unknown", "Unknown"))).toBeNull();
   });
 
-  it("only resolves inversion cues into fullscreen notices", () => {
+  it("resolves countdown, inversion, and timed agitation cues into fullscreen notices", () => {
     const inversionCue: CueEvent = {
       id: "invert-3",
       atSec: 10,
       label: "Invert 3",
       style: "soft",
+    };
+    const timedCue: CueEvent = {
+      id: "mono-initial",
+      atSec: 0,
+      durationSec: 30,
+      label: "Agitate continuously for 30 sec",
+      style: "strong",
     };
     const prepareCue: CueEvent = {
       id: "prepare",
@@ -44,8 +53,12 @@ describe("sessionNotices", () => {
       style: "soft",
     };
 
+    expect(resolveSessionStartCountdownNotice(3).id).toBe("starting_in_3");
     expect(resolveCueNotice(inversionCue)?.id).toBe("invert_3");
+    expect(resolveCueNotice(timedCue)?.id).toBe("agitate_continuously_30_sec");
     expect(resolveCueNotice(prepareCue)).toBeNull();
+    expect(resolveTimedCueEndNotice(timedCue)?.id).toBe("stop_agitation");
+    expect(resolveTimedCueEndNotice(prepareCue)).toBeNull();
   });
 
   it("exposes a checked-in audio manifest and precache URL list", () => {

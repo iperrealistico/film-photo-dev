@@ -23,6 +23,7 @@ import {
   TrashIcon,
   WorkflowIcon,
 } from "./icons";
+import { NumericInput } from "./NumericInput";
 
 interface SavedPanelProps {
   presets: SavedPreset[];
@@ -83,6 +84,7 @@ interface SettingsPanelProps {
   onToggleAnimations: () => void;
   onToggleButtonSounds: () => void;
   onToggleSpeechPrompts: () => void;
+  onSetSessionStartCountdown: (nextValue: number) => void;
   onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
@@ -105,6 +107,7 @@ export function SettingsPanel({
   onToggleAnimations,
   onToggleButtonSounds,
   onToggleSpeechPrompts,
+  onSetSessionStartCountdown,
   onTogglePhaseConfirmation,
   onToggleDiagnostics,
   onExportPresets,
@@ -329,6 +332,24 @@ export function SettingsPanel({
               can stay simple.
             </p>
           </div>
+          <label className="field-shell">
+            <span className="field-label">
+              Session start countdown
+              <em>seconds</em>
+            </span>
+            <NumericInput
+              className="field-input"
+              min={0}
+              max={10}
+              step={1}
+              value={preferences.sessionStartCountdownSec}
+              onChange={onSetSessionStartCountdown}
+            />
+            <span className="field-help">
+              Seconds shown in the fullscreen start notice before the timer
+              actually begins. Use 0 to start immediately.
+            </span>
+          </label>
           <div className="debug-toolbar">
             <button
               type="button"

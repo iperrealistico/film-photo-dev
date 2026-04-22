@@ -344,14 +344,22 @@ export function PlanReview({
         </div>
       </section>
 
-      <div className="action-row">
-        <button type="button" className="secondary-button" onClick={onBackToSetup}>
+      <div className="action-row action-row--glove">
+        <button
+          type="button"
+          className="secondary-button cta-button"
+          onClick={onBackToSetup}
+        >
           <span className="button-label">
             <ChevronLeftIcon aria-hidden="true" />
             <span>Back to setup</span>
           </span>
         </button>
-        <button type="button" className="secondary-button" onClick={onSavePreset}>
+        <button
+          type="button"
+          className="secondary-button cta-button"
+          onClick={onSavePreset}
+        >
           <span className="button-label">
             <BookmarkIcon aria-hidden="true" />
             <span>Save preset</span>

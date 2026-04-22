@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ActiveSessionState, SessionPlan } from "./types";
 import {
+  abortSession,
   completeManualPhase,
+  completeSession,
   confirmPhaseStart,
   confirmRecovery,
   createActiveSession,
@@ -219,6 +221,20 @@ describe("runtime", () => {
     expect(frame.remainingInPhaseSec).toBe(22);
     expect(frame.nextCue?.id).toBe("developer-prepare");
     expect(frame.nextCueInSec).toBe(2);
+  });
+
+  it("freezes elapsed time after a session is stopped or completed", () => {
+    const runningState = createRunningState();
+    const abortedState = abortSession(runningState, 9_000);
+    const completedState = completeSession(runningState, 11_000);
+
+    const abortedFrame = deriveRuntimeFrame(simplePlan, abortedState, 30_000);
+    const completedFrame = deriveRuntimeFrame(simplePlan, completedState, 40_000);
+
+    expect(abortedFrame.elapsedInPhaseSec).toBe(8);
+    expect(abortedFrame.remainingInPhaseSec).toBe(22);
+    expect(completedFrame.elapsedInPhaseSec).toBe(10);
+    expect(completedFrame.remainingInPhaseSec).toBe(20);
   });
 
   it("marks the runtime frame complete after the final phase", () => {

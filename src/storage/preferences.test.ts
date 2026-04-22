@@ -42,6 +42,7 @@ describe('preferences', () => {
       animationsEnabled: true,
       buttonSoundsEnabled: true,
       speechPromptsEnabled: false,
+      sessionStartCountdownSec: 3,
       phaseConfirmationEnabled: false
     });
   });
@@ -61,6 +62,7 @@ describe('preferences', () => {
       animationsEnabled: true,
       buttonSoundsEnabled: true,
       speechPromptsEnabled: false,
+      sessionStartCountdownSec: 3,
       phaseConfirmationEnabled: false
     });
   });

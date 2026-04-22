@@ -240,6 +240,7 @@ export interface ActiveSessionState {
   planId: string;
   status: SessionStatus;
   startEpochMs: number | null;
+  scheduledStartAtMs?: number | null;
   pauseStartedAtMs: number | null;
   totalPausedMs: number;
   createdAtMs: number;

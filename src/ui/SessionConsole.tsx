@@ -10,7 +10,7 @@ import {
   LogIcon,
   PauseIcon,
   PlayIcon,
-  RefreshIcon,
+  PlusIcon,
   StopIcon,
   WarningIcon,
   WorkflowIcon,
@@ -56,6 +56,8 @@ export function SessionConsole({
   const isAwaitingPhaseStart = state.status === "awaiting_phase_start";
   const isManualPhase = frame.currentPhase?.timerMode === "manual";
   const nextPhaseLabel = frame.currentPhase?.label ?? "Next step";
+  const isPendingAutoStart =
+    state.status === "ready" && Boolean(state.scheduledStartAtMs);
 
   const isCompletionState =
     state.status === "completed" ||
@@ -233,10 +235,15 @@ export function SessionConsole({
                 type="button"
                 className="primary-button runtime-button cta-button"
                 onClick={onStart}
+                disabled={isPendingAutoStart}
               >
                 <span className="button-label">
-                  <PlayIcon aria-hidden="true" />
-                  <span>Start timer</span>
+                  {isPendingAutoStart ? (
+                    <ClockIcon aria-hidden="true" />
+                  ) : (
+                    <PlayIcon aria-hidden="true" />
+                  )}
+                  <span>{isPendingAutoStart ? "Starting soon" : "Start timer"}</span>
                 </span>
               </button>
             ) : state.status === "paused" ? (
@@ -275,15 +282,15 @@ export function SessionConsole({
           </div>
         ) : null
       ) : (
-        <div className="action-row">
+        <div className="action-row session-completion-actions">
           <button
             type="button"
-            className="secondary-button cta-button"
+            className="primary-button cta-button"
             onClick={onReset}
           >
             <span className="button-label">
-              <RefreshIcon aria-hidden="true" />
-              <span>New session</span>
+              <PlusIcon aria-hidden="true" />
+              <span>Set up another session</span>
             </span>
           </button>
         </div>
