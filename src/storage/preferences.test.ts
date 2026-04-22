@@ -41,11 +41,15 @@ describe('preferences', () => {
       themeMode: 'standard',
       animationsEnabled: true,
       buttonSoundsEnabled: true,
-      speechPromptsEnabled: false,
-      speechPromptRate: 2,
+      speechPromptsEnabled: true,
+      speechPromptRate: 1.5,
       speechPromptVolume: 1,
       sessionStartCountdownSec: 3,
-      phaseConfirmationEnabled: false
+      phaseConfirmationEnabled: false,
+      debugModeEnabled: false,
+      globalTimeMultiplier: 1,
+      globalTimeAnchorRealMs: expect.any(Number),
+      globalTimeAnchorAppMs: expect.any(Number)
     });
   });
 
@@ -63,11 +67,15 @@ describe('preferences', () => {
       leftHanded: true,
       animationsEnabled: true,
       buttonSoundsEnabled: true,
-      speechPromptsEnabled: false,
-      speechPromptRate: 2,
+      speechPromptsEnabled: true,
+      speechPromptRate: 1.5,
       speechPromptVolume: 1,
       sessionStartCountdownSec: 3,
-      phaseConfirmationEnabled: false
+      phaseConfirmationEnabled: false,
+      debugModeEnabled: false,
+      globalTimeMultiplier: 1,
+      globalTimeAnchorRealMs: expect.any(Number),
+      globalTimeAnchorAppMs: expect.any(Number)
     });
   });
 
@@ -83,11 +91,34 @@ describe('preferences', () => {
       themeMode: 'daylight',
       animationsEnabled: true,
       buttonSoundsEnabled: true,
-      speechPromptsEnabled: false,
-      speechPromptRate: 2,
+      speechPromptsEnabled: true,
+      speechPromptRate: 1.5,
       speechPromptVolume: 1,
       sessionStartCountdownSec: 3,
-      phaseConfirmationEnabled: false
+      phaseConfirmationEnabled: false,
+      debugModeEnabled: false,
+      globalTimeMultiplier: 1,
+      globalTimeAnchorRealMs: expect.any(Number),
+      globalTimeAnchorAppMs: expect.any(Number)
+    });
+  });
+
+  it('clamps and restores stored debug time-scale preferences', () => {
+    window.localStorage.setItem(
+      'film-dev/preferences/v1',
+      JSON.stringify({
+        debugModeEnabled: true,
+        globalTimeMultiplier: 12,
+        globalTimeAnchorRealMs: 1000,
+        globalTimeAnchorAppMs: 1400,
+      }),
+    );
+
+    expect(loadPreferences()).toMatchObject({
+      debugModeEnabled: true,
+      globalTimeMultiplier: 10,
+      globalTimeAnchorRealMs: 1000,
+      globalTimeAnchorAppMs: 1400,
     });
   });
 });

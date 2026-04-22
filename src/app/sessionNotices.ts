@@ -182,6 +182,13 @@ export const sessionNoticeCatalog = {
     ["cue_strong"],
     1200,
   ),
+  prepare_to_agitate: createNoticeSpec(
+    "prepare_to_agitate",
+    "Prepare to agitate",
+    "Prepare to agitate",
+    ["cue_soft"],
+    1200,
+  ),
   stop_agitation: createNoticeSpec(
     "stop_agitation",
     "Stop agitation",
@@ -402,6 +409,7 @@ const cueNoticeIdByLabel: Partial<Record<string, SessionNoticeId>> = {
   "Agitate for 10 sec": "agitate_10_sec",
   "Agitate for 15 sec": "agitate_15_sec",
   "Agitate gently for 5 sec": "agitate_gently_5_sec",
+  "Prepare to agitate": "prepare_to_agitate",
 };
 
 let activeVoiceAudio: HTMLAudioElement | null = null;
@@ -522,7 +530,7 @@ export async function playSessionNoticeVoice(
   audio.preload = "auto";
   audio.playbackRate = Math.min(
     3,
-    Math.max(1, options?.playbackRate ?? 2),
+    Math.max(1, options?.playbackRate ?? 1.5),
   );
   audio.volume = Math.min(1, Math.max(0, options?.volume ?? 1));
   activeVoiceAudio = audio;

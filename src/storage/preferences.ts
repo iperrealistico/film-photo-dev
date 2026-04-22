@@ -4,6 +4,10 @@ import type {
   SessionPlan,
   ThemeMode
 } from '../domain/types';
+import {
+  clampGlobalTimeMultiplier,
+  defaultGlobalTimeMultiplier,
+} from '../domain/timeScale';
 import { logDebugEvent } from '../debug/logging';
 
 const preferenceKey = 'film-dev/preferences/v1';
@@ -22,6 +26,10 @@ export interface PreferenceState {
   phaseConfirmationEnabled: boolean;
   diagnosticsOpen: boolean;
   debugUnlocked: boolean;
+  debugModeEnabled: boolean;
+  globalTimeMultiplier: number;
+  globalTimeAnchorRealMs: number;
+  globalTimeAnchorAppMs: number;
 }
 
 interface LegacyPreferenceState {
@@ -38,22 +46,46 @@ interface LegacyPreferenceState {
   phaseConfirmationEnabled?: boolean;
   diagnosticsOpen?: boolean;
   debugUnlocked?: boolean;
+  debugModeEnabled?: boolean;
+  globalTimeMultiplier?: number;
+  globalTimeAnchorRealMs?: number;
+  globalTimeAnchorAppMs?: number;
 }
 
-const defaultPreferences: PreferenceState = {
-  alertProfileId: 'balanced',
-  themeMode: 'standard',
-  leftHanded: false,
-  animationsEnabled: true,
-  buttonSoundsEnabled: true,
-  speechPromptsEnabled: false,
-  speechPromptRate: 2,
-  speechPromptVolume: 1,
-  sessionStartCountdownSec: 3,
-  phaseConfirmationEnabled: false,
-  diagnosticsOpen: false,
-  debugUnlocked: false
-};
+const defaultAlertProfileId = 'balanced';
+const defaultThemeMode: ThemeMode = 'standard';
+const defaultLeftHanded = false;
+const defaultAnimationsEnabled = true;
+const defaultButtonSoundsEnabled = true;
+const defaultSpeechPromptsEnabled = true;
+const defaultSpeechPromptRate = 1.5;
+const defaultSpeechPromptVolume = 1;
+const defaultSessionStartCountdownSec = 3;
+const defaultPhaseConfirmationEnabled = false;
+const defaultDiagnosticsOpen = false;
+const defaultDebugUnlocked = false;
+const defaultDebugModeEnabled = false;
+
+function createDefaultPreferences(nowMs = Date.now()): PreferenceState {
+  return {
+    alertProfileId: defaultAlertProfileId,
+    themeMode: defaultThemeMode,
+    leftHanded: defaultLeftHanded,
+    animationsEnabled: defaultAnimationsEnabled,
+    buttonSoundsEnabled: defaultButtonSoundsEnabled,
+    speechPromptsEnabled: defaultSpeechPromptsEnabled,
+    speechPromptRate: defaultSpeechPromptRate,
+    speechPromptVolume: defaultSpeechPromptVolume,
+    sessionStartCountdownSec: defaultSessionStartCountdownSec,
+    phaseConfirmationEnabled: defaultPhaseConfirmationEnabled,
+    diagnosticsOpen: defaultDiagnosticsOpen,
+    debugUnlocked: defaultDebugUnlocked,
+    debugModeEnabled: defaultDebugModeEnabled,
+    globalTimeMultiplier: defaultGlobalTimeMultiplier,
+    globalTimeAnchorRealMs: nowMs,
+    globalTimeAnchorAppMs: nowMs
+  };
+}
 
 const supportedThemeModes = new Set<ThemeMode>([
   "standard",
@@ -68,7 +100,7 @@ function resolveStoredSessionStartCountdownSec(
   const rawValue = rawPreferences.sessionStartCountdownSec;
 
   if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-    return defaultPreferences.sessionStartCountdownSec;
+    return defaultSessionStartCountdownSec;
   }
 
   return Math.min(10, Math.max(0, Math.round(rawValue)));
@@ -76,7 +108,7 @@ function resolveStoredSessionStartCountdownSec(
 
 export function clampSpeechPromptRate(rawValue: number) {
   if (!Number.isFinite(rawValue)) {
-    return defaultPreferences.speechPromptRate;
+    return defaultSpeechPromptRate;
   }
 
   return Math.min(3, Math.max(1, Math.round(rawValue * 4) / 4));
@@ -84,10 +116,36 @@ export function clampSpeechPromptRate(rawValue: number) {
 
 export function clampSpeechPromptVolume(rawValue: number) {
   if (!Number.isFinite(rawValue)) {
-    return defaultPreferences.speechPromptVolume;
+    return defaultSpeechPromptVolume;
   }
 
   return Math.min(1, Math.max(0, Math.round(rawValue * 100) / 100));
+}
+
+function resolveStoredGlobalTimeAnchorRealMs(
+  rawPreferences: LegacyPreferenceState,
+  fallbackNowMs: number,
+) {
+  const rawValue = rawPreferences.globalTimeAnchorRealMs;
+
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    return fallbackNowMs;
+  }
+
+  return rawValue;
+}
+
+function resolveStoredGlobalTimeAnchorAppMs(
+  rawPreferences: LegacyPreferenceState,
+  fallbackAppMs: number,
+) {
+  const rawValue = rawPreferences.globalTimeAnchorAppMs;
+
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    return fallbackAppMs;
+  }
+
+  return rawValue;
 }
 
 function resolveStoredThemeMode(rawPreferences: LegacyPreferenceState) {
@@ -101,10 +159,13 @@ function resolveStoredThemeMode(rawPreferences: LegacyPreferenceState) {
     return 'red_safe';
   }
 
-  return defaultPreferences.themeMode;
+  return defaultThemeMode;
 }
 
 export function loadPreferences() {
+  const nowMs = Date.now();
+  const defaultPreferences = createDefaultPreferences(nowMs);
+
   if (typeof localStorage === 'undefined') {
     return defaultPreferences;
   }
@@ -121,6 +182,13 @@ export function loadPreferences() {
 
   try {
     const parsed = JSON.parse(raw) as LegacyPreferenceState;
+    const globalTimeAnchorRealMs = resolveStoredGlobalTimeAnchorRealMs(
+      parsed,
+      nowMs,
+    );
+    const globalTimeMultiplier = clampGlobalTimeMultiplier(
+      parsed.globalTimeMultiplier ?? Number.NaN,
+    );
     const preferences = {
       ...defaultPreferences,
       ...parsed,
@@ -129,7 +197,25 @@ export function loadPreferences() {
       speechPromptVolume: clampSpeechPromptVolume(
         parsed.speechPromptVolume ?? NaN,
       ),
-      sessionStartCountdownSec: resolveStoredSessionStartCountdownSec(parsed)
+      sessionStartCountdownSec: resolveStoredSessionStartCountdownSec(parsed),
+      alertProfileId: parsed.alertProfileId ?? defaultAlertProfileId,
+      leftHanded: parsed.leftHanded ?? defaultLeftHanded,
+      animationsEnabled: parsed.animationsEnabled ?? defaultAnimationsEnabled,
+      buttonSoundsEnabled:
+        parsed.buttonSoundsEnabled ?? defaultButtonSoundsEnabled,
+      speechPromptsEnabled:
+        parsed.speechPromptsEnabled ?? defaultSpeechPromptsEnabled,
+      phaseConfirmationEnabled:
+        parsed.phaseConfirmationEnabled ?? defaultPhaseConfirmationEnabled,
+      diagnosticsOpen: parsed.diagnosticsOpen ?? defaultDiagnosticsOpen,
+      debugUnlocked: parsed.debugUnlocked ?? defaultDebugUnlocked,
+      debugModeEnabled: parsed.debugModeEnabled ?? defaultDebugModeEnabled,
+      globalTimeMultiplier,
+      globalTimeAnchorRealMs,
+      globalTimeAnchorAppMs: resolveStoredGlobalTimeAnchorAppMs(
+        parsed,
+        globalTimeAnchorRealMs,
+      ),
     } satisfies PreferenceState;
 
     logDebugEvent({
@@ -146,7 +232,9 @@ export function loadPreferences() {
         sessionStartCountdownSec: preferences.sessionStartCountdownSec,
         phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
         diagnosticsOpen: preferences.diagnosticsOpen,
-        debugUnlocked: preferences.debugUnlocked
+        debugUnlocked: preferences.debugUnlocked,
+        debugModeEnabled: preferences.debugModeEnabled,
+        globalTimeMultiplier: preferences.globalTimeMultiplier
       }
     });
 
@@ -181,7 +269,9 @@ export function savePreferences(preferences: PreferenceState) {
       sessionStartCountdownSec: preferences.sessionStartCountdownSec,
       phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
       diagnosticsOpen: preferences.diagnosticsOpen,
-      debugUnlocked: preferences.debugUnlocked
+      debugUnlocked: preferences.debugUnlocked,
+      debugModeEnabled: preferences.debugModeEnabled,
+      globalTimeMultiplier: preferences.globalTimeMultiplier
     }
   });
 }

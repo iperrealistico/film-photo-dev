@@ -88,6 +88,8 @@ interface SettingsPanelProps {
   onSetSpeechPromptRate: (nextValue: number) => void;
   onSetSpeechPromptVolume: (nextValue: number) => void;
   onSetSessionStartCountdown: (nextValue: number) => void;
+  onToggleDebugMode: () => void;
+  onSetGlobalTimeMultiplier: (nextValue: number) => void;
   onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
@@ -150,6 +152,8 @@ export function SettingsPanel({
   onSetSpeechPromptRate,
   onSetSpeechPromptVolume,
   onSetSessionStartCountdown,
+  onToggleDebugMode,
+  onSetGlobalTimeMultiplier,
   onTogglePhaseConfirmation,
   onToggleDiagnostics,
   onExportPresets,
@@ -344,7 +348,10 @@ export function SettingsPanel({
         <label className="field-shell">
           <span className="field-label">
             Voice speed
-            <em>{preferences.speechPromptRate.toFixed(2).replace(/\.00$/, "")}x</em>
+            <em>{`${preferences.speechPromptRate
+              .toFixed(2)
+              .replace(/\.00$/, "")
+              .replace(/(\.\d)0$/, "$1")}x`}</em>
           </span>
           <input
             className="field-range"
@@ -360,7 +367,7 @@ export function SettingsPanel({
           />
           <span className="field-help">
             Makes each spoken prompt play faster without changing the timing of
-            the darkroom schedule. Default: 2x.
+            the darkroom schedule. Default: 1.5x.
           </span>
         </label>
         <label className="field-shell">
@@ -384,17 +391,23 @@ export function SettingsPanel({
             Controls the loudness of bundled offline voice prompts.
           </span>
         </label>
-        <button
-          type="button"
-          className="toggle-button"
-          onClick={onTogglePhaseConfirmation}
-        >
-          <span className="button-label">
-            <PauseIcon aria-hidden="true" />
-            <span>Pause between steps</span>
+        <div className="stack compact-stack">
+          <button
+            type="button"
+            className="toggle-button"
+            onClick={onTogglePhaseConfirmation}
+          >
+            <span className="button-label">
+              <PauseIcon aria-hidden="true" />
+              <span>Pause between steps</span>
+            </span>
+            <strong>{preferences.phaseConfirmationEnabled ? "On" : "Off"}</strong>
+          </button>
+          <span className="field-help">
+            Experimental: this may still behave unexpectedly around some step
+            transitions.
           </span>
-          <strong>{preferences.phaseConfirmationEnabled ? "On" : "Off"}</strong>
-        </button>
+        </div>
         <button
           type="button"
           className="toggle-button"
@@ -437,6 +450,44 @@ export function SettingsPanel({
               can stay simple.
             </p>
           </div>
+          <button
+            type="button"
+            className="toggle-button"
+            onClick={onToggleDebugMode}
+          >
+            <span className="button-label">
+              <BugIcon aria-hidden="true" />
+              <span>Debug mode</span>
+            </span>
+            <strong>{preferences.debugModeEnabled ? "On" : "Off"}</strong>
+          </button>
+          {preferences.debugModeEnabled ? (
+            <label className="field-shell">
+              <span className="field-label">
+                Global time multiplier
+                <em>
+                  {preferences.globalTimeMultiplier.toFixed(1).replace(/\.0$/, "")}x
+                </em>
+              </span>
+              <input
+                className="field-range"
+                type="range"
+                min={0.1}
+                max={10}
+                step={0.1}
+                value={preferences.globalTimeMultiplier}
+                onChange={(event) =>
+                  onSetGlobalTimeMultiplier(Number(event.target.value))
+                }
+                aria-label="Global time multiplier"
+              />
+              <span className="field-help">
+                Speeds up or slows down every app timer, including start
+                countdowns, darkroom phases, cue windows, and notice lifetimes.
+                Default: 1x.
+              </span>
+            </label>
+          ) : null}
           <label className="field-shell">
             <span className="field-label">
               Session start countdown

@@ -312,6 +312,11 @@ describe("App", () => {
     const { unmount } = render(<App />);
 
     await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+    expect(
+      screen.getByText(
+        /Experimental: this may still behave unexpectedly around some step transitions\./i,
+      ),
+    ).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: /Screen animations/i }),
     );
@@ -329,7 +334,7 @@ describe("App", () => {
     ).toHaveTextContent("Off");
     expect(
       screen.getByRole("button", { name: /Voice prompts/i }),
-    ).toHaveTextContent("On");
+    ).toHaveTextContent("Off");
     expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
@@ -346,7 +351,7 @@ describe("App", () => {
     ).toHaveTextContent("Off");
     expect(
       screen.getByRole("button", { name: /Voice prompts/i }),
-    ).toHaveTextContent("On");
+    ).toHaveTextContent("Off");
     expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
@@ -366,7 +371,11 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
     });
 
-    expect(voiceSpy).not.toHaveBeenCalled();
+    expect(voiceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "pour_monobath" }),
+      expect.objectContaining({ playbackRate: 1.5, volume: 1 }),
+    );
+    const enabledCallCount = voiceSpy.mock.calls.length;
 
     unmount();
     resetClientStorage();
@@ -383,10 +392,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
     });
 
-    expect(voiceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "pour_monobath" }),
-      expect.objectContaining({ playbackRate: 2, volume: 1 }),
-    );
+    expect(voiceSpy.mock.calls).toHaveLength(enabledCallCount);
   }, 10000);
 
   it("uses the default 3-second start countdown before the timer begins", async () => {
@@ -540,6 +546,121 @@ describe("App", () => {
       }),
     ).toHaveValue("5");
   });
+
+  it("shows a debug-mode toggle and persists the global time multiplier", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/?debug=1");
+    const { unmount } = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+
+    const debugModeButton = await screen.findByRole("button", {
+      name: /Debug mode/i,
+    });
+    expect(
+      screen.queryByRole("slider", { name: /Global time multiplier/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(debugModeButton);
+
+    const multiplierSlider = await screen.findByRole("slider", {
+      name: /Global time multiplier/i,
+    });
+    fireEvent.change(multiplierSlider, { target: { value: "2.5" } });
+    expect(multiplierSlider).toHaveValue("2.5");
+
+    unmount();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+
+    expect(
+      await screen.findByRole("slider", {
+        name: /Global time multiplier/i,
+      }),
+    ).toHaveValue("2.5");
+  });
+
+  it("speeds up the default start countdown when debug mode runs at 2x", async () => {
+    const user = userEvent.setup();
+
+    resetClientStorage();
+    storePreferences({
+      debugUnlocked: true,
+      debugModeEnabled: true,
+      globalTimeMultiplier: 2,
+      globalTimeAnchorRealMs: 0,
+      globalTimeAnchorAppMs: 0,
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Starting in 3 seconds/i,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_600);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Pour monobath/i);
+  }, 10000);
+
+  it("keeps high-speed runtime cues visible instead of skipping past them at 10x", async () => {
+    const user = userEvent.setup();
+
+    storePreferences({
+      debugUnlocked: true,
+      debugModeEnabled: true,
+      globalTimeMultiplier: 10,
+      globalTimeAnchorRealMs: 0,
+      globalTimeAnchorAppMs: 0,
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_600);
+    });
+
+    expect(screen.getByText(/Agitate continuously for 30 sec/i)).toBeInTheDocument();
+  }, 10000);
 
   it("applies the large CTA treatment to the major session controls", async () => {
     const user = userEvent.setup();
@@ -1243,6 +1364,69 @@ describe("App", () => {
     expect(
       screen.queryByText(/Prepare to agitate in 26s/i),
     ).not.toBeInTheDocument();
+  }, 10000);
+
+  it("shows a fullscreen prepare notice and plays the generic voice prompt when DF96 enters the final 3-second agitation countdown", async () => {
+    const user = userEvent.setup();
+    const audioSpy = vi
+      .spyOn(sessionAudio, "playToneSequence")
+      .mockImplementation(() => undefined);
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+
+    resetClientStorage();
+    storePreferences({
+      speechPromptsEnabled: true,
+      sessionStartCountdownSec: 0,
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(66_000);
+    });
+
+    expect(screen.getByText(/Prepare to agitate in 1s/i)).toBeInTheDocument();
+
+    const audioCallCountBeforePrepare = audioSpy.mock.calls.length;
+    const voiceCallCountBeforePrepare = voiceSpy.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Prepare to agitate/i);
+    expect(audioSpy.mock.calls).toHaveLength(audioCallCountBeforePrepare + 1);
+    expect(audioSpy.mock.calls.at(-1)?.[0]).toEqual(["cue_soft"]);
+    expect(voiceSpy.mock.calls).toHaveLength(voiceCallCountBeforePrepare + 1);
+    expect(voiceSpy.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ id: "prepare_to_agitate" }),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(screen.getByText(/Agitate for 10 sec in 2s/i)).toBeInTheDocument();
   }, 10000);
 
   it("does not emit per-second cue-pulse beeps during a DF96 agitation window", async () => {
