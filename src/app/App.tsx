@@ -66,6 +66,7 @@ import { RecipeBrowser } from "../ui/RecipeBrowser";
 import { SessionConsole } from "../ui/SessionConsole";
 import { SessionNoticeOverlay } from "../ui/SessionNoticeOverlay";
 import { SetupForm } from "../ui/SetupForm";
+import { ThemeModeWarningDialog } from "../ui/ThemeModeWarningDialog";
 import * as sessionAudio from "./sessionAudio";
 import {
   playSessionNoticeVoice,
@@ -80,6 +81,8 @@ import {
   type SessionNoticeSpec,
 } from "./sessionNotices";
 import {
+  clampSpeechPromptRate,
+  clampSpeechPromptVolume,
   clearActiveSessionSnapshot,
   loadActiveSessionSnapshot,
   loadPreferences,
@@ -146,6 +149,13 @@ const screenLabels: Record<Screen, string> = {
   settings: "Settings",
 };
 
+const themeColorByMode: Record<ThemeMode, string> = {
+  standard: "#0d0f10",
+  daylight: "#f4ecdd",
+  red_safe: "#2a0408",
+  ultrared: "#4a0004",
+};
+
 function buildExportFileName(label: string) {
   const stamp = new Date().toISOString().replaceAll(":", "-");
   return `film-dev-${label}-${stamp}.json`;
@@ -209,6 +219,24 @@ function clampSessionStartCountdownSec(value: number) {
   return Math.min(10, Math.max(0, Math.round(value)));
 }
 
+function shouldAnnounceOpeningPhase(plan: SessionPlan) {
+  const openingPhase = plan.phaseList[0];
+
+  return (
+    openingPhase?.kind === "fill" ||
+    openingPhase?.kind === "drain" ||
+    openingPhase?.kind === "instruction"
+  );
+}
+
+function resolveOpeningPhaseNotice(plan: SessionPlan) {
+  if (!shouldAnnounceOpeningPhase(plan)) {
+    return null;
+  }
+
+  return resolvePhaseNotice(plan.phaseList[0]);
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>("recipes");
   const [aboutReturnScreen, setAboutReturnScreen] = useState<Screen>("recipes");
@@ -236,11 +264,13 @@ export function App() {
   const [screenTransitionDirection, setScreenTransitionDirection] =
     useState<ScreenTransitionDirection>("lateral");
   const [setupWarningIgnored, setSetupWarningIgnored] = useState(false);
+  const [themeWarningOpen, setThemeWarningOpen] = useState(false);
   const lastCueRef = useRef("");
   const lastPhaseRef = useRef("");
   const lastSessionEventRef = useRef("");
   const lastTimedCueRef = useRef<CueEvent | null>(null);
   const lastSessionIdRef = useRef<string | null>(null);
+  const openingPhaseNoticeShownRef = useRef<string | null>(null);
   const noticeTimeoutRef = useRef<number | null>(null);
   const noticeSequenceRef = useRef(0);
   const screenRef = useRef<Screen>("recipes");
@@ -267,12 +297,14 @@ export function App() {
     activePlan && activeSession
       ? deriveRuntimeFrame(activePlan, activeSession, nowMs)
       : null;
+  const quickThemeTargetMode =
+    preferences.themeMode === "standard" ? "ultrared" : "standard";
   const quickThemeLabel =
-    preferences.themeMode === "standard"
+    quickThemeTargetMode === "ultrared"
       ? "Switch to Red safe"
       : "Switch to White light";
   const quickThemeCompactLabel =
-    preferences.themeMode === "standard" ? "Red safe" : "White light";
+    quickThemeTargetMode === "ultrared" ? "Red safe" : "White light";
   const headerEyebrow =
     screen === "setup" || screen === "plan" || screen === "session"
       ? selectedRecipe.name
@@ -382,7 +414,10 @@ export function App() {
     sessionAudio.playToneSequence(spec.toneKinds);
 
     if (preferences.speechPromptsEnabled) {
-      void playSessionNoticeVoice(spec);
+      void playSessionNoticeVoice(spec, {
+        playbackRate: preferences.speechPromptRate,
+        volume: preferences.speechPromptVolume,
+      });
     }
 
     noticeTimeoutRef.current = window.setTimeout(() => {
@@ -398,6 +433,7 @@ export function App() {
       preferences.sessionStartCountdownSec,
     );
     const session = createActiveSession(plan, nowMs);
+    const openingPhaseNotice = resolveOpeningPhaseNotice(plan);
 
     if (countdownSec > 0) {
       return {
@@ -407,13 +443,15 @@ export function App() {
           scheduledStartAtMs: nowMs + countdownSec * 1000,
         },
         notice: resolveSessionStartCountdownNotice(countdownSec),
+        openingPhaseNoticeShownOnStart: false,
       };
     }
 
     return {
       countdownSec,
       session: beginSessionState(session, nowMs),
-      notice: resolveStartSessionNotice(),
+      notice: openingPhaseNotice ?? resolveStartSessionNotice(),
+      openingPhaseNoticeShownOnStart: Boolean(openingPhaseNotice),
     };
   }
 
@@ -522,6 +560,12 @@ export function App() {
   }, [preferences.speechPromptsEnabled]);
 
   useEffect(() => {
+    if (preferences.themeMode !== "ultrared") {
+      setThemeWarningOpen(false);
+    }
+  }, [preferences.themeMode]);
+
+  useEffect(() => {
     return () => {
       if (noticeTimeoutRef.current !== null) {
         window.clearTimeout(noticeTimeoutRef.current);
@@ -578,17 +622,21 @@ export function App() {
   }, [screen, selectedRecipe.name]);
 
   useEffect(() => {
-    const themeColor =
-      preferences.themeMode === "standard"
-        ? "#0d0f10"
-        : preferences.themeMode === "red_safe"
-          ? "#2a0408"
-          : "#4a0004";
+    document.body.dataset.themeMode = preferences.themeMode;
+    document.documentElement.style.colorScheme =
+      preferences.themeMode === "daylight" ? "light" : "dark";
+
+    const themeColor = themeColorByMode[preferences.themeMode];
     const meta =
       document.querySelector('meta[name="theme-color"]') ??
       document.head.appendChild(document.createElement("meta"));
     meta.setAttribute("name", "theme-color");
     meta?.setAttribute("content", themeColor);
+
+    return () => {
+      delete document.body.dataset.themeMode;
+      document.documentElement.style.colorScheme = "dark";
+    };
   }, [preferences.themeMode]);
 
   useEffect(() => {
@@ -640,6 +688,7 @@ export function App() {
     lastPhaseRef.current = "";
     lastSessionEventRef.current = "";
     lastTimedCueRef.current = null;
+    openingPhaseNoticeShownRef.current = null;
 
     if (previousSessionId) {
       setActiveNotice(null);
@@ -741,7 +790,7 @@ export function App() {
   }, [activeSession, selectedRecipeId]);
 
   useEffect(() => {
-    if (!runtimeFrame || !activeSession) {
+    if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
       return;
     }
 
@@ -754,19 +803,29 @@ export function App() {
 
     lastPhaseRef.current = phaseSignature;
 
-    if (activeSession.status !== "running") {
-      return;
-    }
-
     const isFirstObservedPhase =
       !previousSignature ||
       !previousSignature.startsWith(`${activeSession.sessionId}:`);
+    const currentPhaseNotice = resolvePhaseNotice(runtimeFrame.currentPhase);
 
     if (isFirstObservedPhase) {
+      if (openingPhaseNoticeShownRef.current === activeSession.sessionId) {
+        openingPhaseNoticeShownRef.current = null;
+        return;
+      }
+
+      if (
+        currentPhaseNotice &&
+        (runtimeFrame.currentPhase?.kind === "fill" ||
+          runtimeFrame.currentPhase?.kind === "drain" ||
+          runtimeFrame.currentPhase?.kind === "instruction")
+      ) {
+        showSessionNotice(currentPhaseNotice);
+      }
+
       return;
     }
 
-    const currentPhaseNotice = resolvePhaseNotice(runtimeFrame.currentPhase);
     const nextPhaseLabel = runtimeFrame.currentPhase?.label ?? "Next step";
     const shouldGateNextPhase =
       runtimeFrame.currentPhase?.timerMode === "manual" ||
@@ -882,6 +941,8 @@ export function App() {
       `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
       `speech-prompts:${preferences.speechPromptsEnabled}`,
+      `speech-rate:${preferences.speechPromptRate}`,
+      `speech-volume:${preferences.speechPromptVolume}`,
       `session-start-countdown:${preferences.sessionStartCountdownSec}`,
       `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
@@ -997,10 +1058,12 @@ export function App() {
     }
 
     const now = Date.now();
-    const { countdownSec, session, notice } = prepareSessionStartState(
-      draftPlan,
-      now,
-    );
+    const {
+      countdownSec,
+      session,
+      notice,
+      openingPhaseNoticeShownOnStart,
+    } = prepareSessionStartState(draftPlan, now);
 
     logPlannerEvent("plan_committed_to_session", draftPlan, {
       screen,
@@ -1018,6 +1081,9 @@ export function App() {
       sessionId: session.sessionId,
     });
     setActivePlan(draftPlan);
+    openingPhaseNoticeShownRef.current = openingPhaseNoticeShownOnStart
+      ? session.sessionId
+      : null;
     setActiveSession(session);
     transitionToScreen("session", "forward");
     showSessionNotice(notice);
@@ -1147,18 +1213,27 @@ export function App() {
   }
 
   function handleSetThemeMode(mode: ThemeMode) {
+    const shouldOpenThemeWarning =
+      preferences.themeMode !== "ultrared" && mode === "ultrared";
+
     logUiEvent("theme_mode_selected", {
+      currentValue: preferences.themeMode,
       nextValue: mode,
     });
     setPreferences((current) => ({
       ...current,
       themeMode: mode,
     }));
+
+    if (shouldOpenThemeWarning) {
+      setThemeWarningOpen(true);
+    }
   }
 
   function handleQuickThemeToggle() {
-    const nextMode =
-      preferences.themeMode === "standard" ? "ultrared" : "standard";
+    const nextMode = quickThemeTargetMode;
+    const shouldOpenThemeWarning =
+      preferences.themeMode !== "ultrared" && nextMode === "ultrared";
 
     logUiEvent("theme_mode_quick_toggled", {
       currentValue: preferences.themeMode,
@@ -1168,6 +1243,10 @@ export function App() {
       ...current,
       themeMode: nextMode,
     }));
+
+    if (shouldOpenThemeWarning) {
+      setThemeWarningOpen(true);
+    }
   }
 
   function handleToggleHandedness() {
@@ -1207,6 +1286,30 @@ export function App() {
     setPreferences((current) => ({
       ...current,
       speechPromptsEnabled: !current.speechPromptsEnabled,
+    }));
+  }
+
+  function handleSetSpeechPromptRate(nextValue: number) {
+    const resolvedValue = clampSpeechPromptRate(nextValue);
+
+    logUiEvent("speech_prompt_rate_changed", {
+      nextValue: resolvedValue,
+    });
+    setPreferences((current) => ({
+      ...current,
+      speechPromptRate: resolvedValue,
+    }));
+  }
+
+  function handleSetSpeechPromptVolume(nextValue: number) {
+    const resolvedValue = clampSpeechPromptVolume(nextValue);
+
+    logUiEvent("speech_prompt_volume_changed", {
+      nextValue: resolvedValue,
+    });
+    setPreferences((current) => ({
+      ...current,
+      speechPromptVolume: resolvedValue,
     }));
   }
 
@@ -1322,12 +1425,13 @@ export function App() {
     }
   }
   const QuickThemeIcon =
-    preferences.themeMode === "standard" ? ShieldIcon : SunIcon;
+    quickThemeTargetMode === "ultrared" ? ShieldIcon : SunIcon;
 
   return (
     <div
       className={[
         "app-shell",
+        preferences.themeMode === "daylight" ? "is-daylight" : "",
         preferences.themeMode === "red_safe" ? "is-red-safe" : "",
         preferences.themeMode === "ultrared" ? "is-ultrared" : "",
         preferences.animationsEnabled ? "is-motion-rich" : "is-motion-reduced",
@@ -1458,7 +1562,13 @@ export function App() {
                 frame={runtimeFrame}
                 onStart={() => {
                   logUiEvent("session_started_from_console");
-                  showSessionNotice(resolveStartSessionNotice());
+                  const openingPhaseNotice = resolveOpeningPhaseNotice(activePlan);
+                  openingPhaseNoticeShownRef.current = openingPhaseNotice
+                    ? activeSession.sessionId
+                    : null;
+                  showSessionNotice(
+                    openingPhaseNotice ?? resolveStartSessionNotice(),
+                  );
                   setActiveSession((current) =>
                     current &&
                     current.status === "ready" &&
@@ -1544,6 +1654,8 @@ export function App() {
                 onToggleAnimations={handleToggleAnimations}
                 onToggleButtonSounds={handleToggleButtonSounds}
                 onToggleSpeechPrompts={handleToggleSpeechPrompts}
+                onSetSpeechPromptRate={handleSetSpeechPromptRate}
+                onSetSpeechPromptVolume={handleSetSpeechPromptVolume}
                 onSetSessionStartCountdown={handleSetSessionStartCountdown}
                 onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
@@ -1661,6 +1773,16 @@ export function App() {
           notice={activeNotice.spec}
           sequence={activeNotice.sequence}
           animationsEnabled={preferences.animationsEnabled}
+        />
+      ) : null}
+      {themeWarningOpen ? (
+        <ThemeModeWarningDialog
+          onDismiss={() => {
+            logUiEvent("theme_mode_warning_dismissed", {
+              themeMode: preferences.themeMode,
+            });
+            setThemeWarningOpen(false);
+          }}
         />
       ) : null}
     </div>

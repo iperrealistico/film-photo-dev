@@ -42,6 +42,8 @@ describe('preferences', () => {
       animationsEnabled: true,
       buttonSoundsEnabled: true,
       speechPromptsEnabled: false,
+      speechPromptRate: 2,
+      speechPromptVolume: 1,
       sessionStartCountdownSec: 3,
       phaseConfirmationEnabled: false
     });
@@ -62,6 +64,28 @@ describe('preferences', () => {
       animationsEnabled: true,
       buttonSoundsEnabled: true,
       speechPromptsEnabled: false,
+      speechPromptRate: 2,
+      speechPromptVolume: 1,
+      sessionStartCountdownSec: 3,
+      phaseConfirmationEnabled: false
+    });
+  });
+
+  it('keeps a stored daylight theme mode', () => {
+    window.localStorage.setItem(
+      'film-dev/preferences/v1',
+      JSON.stringify({
+        themeMode: 'daylight',
+      }),
+    );
+
+    expect(loadPreferences()).toMatchObject({
+      themeMode: 'daylight',
+      animationsEnabled: true,
+      buttonSoundsEnabled: true,
+      speechPromptsEnabled: false,
+      speechPromptRate: 2,
+      speechPromptVolume: 1,
       sessionStartCountdownSec: 3,
       phaseConfirmationEnabled: false
     });

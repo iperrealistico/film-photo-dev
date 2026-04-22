@@ -237,6 +237,36 @@ describe("runtime", () => {
     expect(completedFrame.remainingInPhaseSec).toBe(20);
   });
 
+  it("freezes elapsed time after stopping from a paused state", () => {
+    const runningState = createRunningState();
+    const pausedState = pauseSession(runningState, 9_000);
+    const abortedState = abortSession(pausedState, 30_000);
+
+    const frame = deriveRuntimeFrame(simplePlan, abortedState, 60_000);
+
+    expect(abortedState.totalPausedMs).toBe(21_000);
+    expect(abortedState.pauseStartedAtMs).toBeNull();
+    expect(frame.elapsedInPhaseSec).toBe(8);
+    expect(frame.remainingInPhaseSec).toBe(22);
+    expect(frame.nextCue?.id).toBe("developer-prepare");
+    expect(frame.nextCueInSec).toBe(2);
+  });
+
+  it("freezes elapsed time after stopping from a phase-wait state", () => {
+    const runningState = createRunningState();
+    const waitingState = waitForPhaseConfirmation(runningState, 9_000, "Stop");
+    const abortedState = abortSession(waitingState, 30_000);
+
+    const frame = deriveRuntimeFrame(simplePlan, abortedState, 60_000);
+
+    expect(abortedState.totalPausedMs).toBe(21_000);
+    expect(abortedState.pauseStartedAtMs).toBeNull();
+    expect(frame.elapsedInPhaseSec).toBe(8);
+    expect(frame.remainingInPhaseSec).toBe(22);
+    expect(frame.nextCue?.id).toBe("developer-prepare");
+    expect(frame.nextCueInSec).toBe(2);
+  });
+
   it("marks the runtime frame complete after the final phase", () => {
     const runningState = createRunningState();
 

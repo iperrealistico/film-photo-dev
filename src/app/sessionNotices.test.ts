@@ -23,8 +23,17 @@ function createPhase(id: string, label: string): PhaseDefinition {
 
 describe("sessionNotices", () => {
   it("maps runtime phases into the finite fullscreen notice catalog", () => {
+    expect(resolvePhaseNotice(createPhase("fill-presoak", "Pour pre-soak water"))?.id).toBe(
+      "pour_pre_soak_water",
+    );
+    expect(resolvePhaseNotice(createPhase("fill-dev", "Pour developer"))?.id).toBe(
+      "pour_developer",
+    );
     expect(resolvePhaseNotice(createPhase("drain-dev", "Drain developer"))?.id).toBe(
       "drain_developer",
+    );
+    expect(resolvePhaseNotice(createPhase("drain-wash", "Drain wash"))?.id).toBe(
+      "drain_wash",
     );
     expect(resolvePhaseNotice(createPhase("wash-minimal-2", "Minimal wash"))?.id).toBe(
       "minimal_wash_10",
@@ -88,6 +97,9 @@ describe("sessionNotices", () => {
     );
     expect(noticeAudioManifest.session_complete).toBe(
       "audio/notices/session-complete.mp3",
+    );
+    expect(listSessionNoticeCacheUrls()).toContain(
+      "./audio/notices/pour-developer.mp3",
     );
     expect(listSessionNoticeCacheUrls()).toContain(
       "./audio/notices/drain-monobath.mp3",

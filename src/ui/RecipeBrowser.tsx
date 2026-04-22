@@ -8,6 +8,7 @@ import {
   FilmIcon,
   FlaskIcon,
   LayersIcon,
+  MoonIcon,
   OfflineIcon,
   SearchIcon,
   ShieldIcon,
@@ -257,6 +258,22 @@ export function RecipeBrowser({
               <li>Uses source-backed recipe data where available.</li>
               <li>For approved B/W combinations, the app can reference the Massive Dev Chart.</li>
               <li>Shows recipe provenance so you can see what the timing is based on.</li>
+            </ul>
+          </article>
+
+          <article className="guide-card">
+            <div className="guide-card__title">
+              <span className="surface-icon surface-icon--row">
+                <MoonIcon aria-hidden="true" />
+              </span>
+              <h2>iPhone red-light tips</h2>
+            </div>
+            <ul className="bullet-list">
+              <li>Red safe mode only tints this app, so some browser and iOS elements can still keep their normal colors.</li>
+              <li>Reduce your screen brightness before you start.</li>
+              <li>In Settings, enable Color Filters if you want the whole screen tinted red.</li>
+              <li>Use Reduce White Point to make bright whites less harsh, and switch the iPhone appearance to Dark.</li>
+              <li>Enable Focus or full immersion to reduce distractions and notifications in the darkroom.</li>
             </ul>
           </article>
         </div>

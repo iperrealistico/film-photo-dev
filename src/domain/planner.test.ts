@@ -287,8 +287,10 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList[0]?.label).toBe("Pre-soak");
-    expect(plan.phaseList[1]?.durationSec).toBe(231);
+    expect(plan.phaseList[0]?.label).toBe("Pour pre-soak water");
+    expect(
+      plan.phaseList.find((phase) => phase.label === "Developer")?.durationSec,
+    ).toBe(231);
     expect(
       plan.phaseList.find((phase) => phase.label === "Blix")?.durationSec,
     ).toBe(480);
@@ -456,9 +458,12 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList[0]?.durationSec).toBe(360);
-    expect(plan.phaseList[1]?.label).toBe("Drain monobath");
-    expect(plan.phaseList[1]?.durationSec).toBe(10);
+    expect(plan.phaseList[0]?.label).toBe("Pour monobath");
+    expect(
+      plan.phaseList.find((phase) => phase.label === "Monobath")?.durationSec,
+    ).toBe(360);
+    expect(plan.phaseList[2]?.label).toBe("Drain monobath");
+    expect(plan.phaseList[2]?.durationSec).toBe(10);
     expect(plan.blockingIssues).toHaveLength(0);
     expect(
       plan.calculationLines.some((line) => line.label === "Matrix result"),
@@ -482,7 +487,9 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    const monobathPhase = plan.phaseList[0];
+    const monobathPhase = plan.phaseList.find(
+      (phase) => phase.label === "Monobath",
+    );
 
     expect(monobathPhase?.cueEvents[0]).toMatchObject({
       label: "Agitate continuously for 30 sec",
@@ -521,7 +528,9 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList[0]?.durationSec).toBe(510);
+    expect(
+      plan.phaseList.find((phase) => phase.label === "Monobath")?.durationSec,
+    ).toBe(510);
     expect(
       plan.warnings.some(
         (warning) => /cap/i.test(warning) || /8:00/i.test(warning),
@@ -566,12 +575,12 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList[1]?.label).toBe("Drain monobath");
-    expect(plan.phaseList[1]?.timerMode).toBe("countdown");
+    expect(plan.phaseList[2]?.label).toBe("Drain monobath");
+    expect(plan.phaseList[2]?.timerMode).toBe("countdown");
     expect(
-      plan.phaseList.slice(2).every((phase) => phase.timerMode === "manual"),
+      plan.phaseList.slice(3).every((phase) => phase.timerMode === "manual"),
     ).toBe(true);
-    expect(plan.phaseList.slice(2).map((phase) => phase.label)).toEqual([
+    expect(plan.phaseList.slice(3).map((phase) => phase.label)).toEqual([
       "Minimal wash · 5 inversions",
       "Minimal wash · 10 inversions",
       "Minimal wash · 20 inversions",
@@ -595,8 +604,8 @@ describe("session planning", () => {
       defaultAlertProfiles[0],
     );
 
-    expect(plan.phaseList[1]?.label).toBe("Drain monobath");
-    expect(plan.phaseList[1]?.durationSec).toBe(20);
+    expect(plan.phaseList[2]?.label).toBe("Drain monobath");
+    expect(plan.phaseList[2]?.durationSec).toBe(20);
     expect(
       plan.calculationLines.find((line) => line.label === "Drain before wash")
         ?.value,

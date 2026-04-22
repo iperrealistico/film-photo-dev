@@ -16,6 +16,8 @@ export interface PreferenceState {
   animationsEnabled: boolean;
   buttonSoundsEnabled: boolean;
   speechPromptsEnabled: boolean;
+  speechPromptRate: number;
+  speechPromptVolume: number;
   sessionStartCountdownSec: number;
   phaseConfirmationEnabled: boolean;
   diagnosticsOpen: boolean;
@@ -30,6 +32,8 @@ interface LegacyPreferenceState {
   animationsEnabled?: boolean;
   buttonSoundsEnabled?: boolean;
   speechPromptsEnabled?: boolean;
+  speechPromptRate?: number;
+  speechPromptVolume?: number;
   sessionStartCountdownSec?: number;
   phaseConfirmationEnabled?: boolean;
   diagnosticsOpen?: boolean;
@@ -43,11 +47,20 @@ const defaultPreferences: PreferenceState = {
   animationsEnabled: true,
   buttonSoundsEnabled: true,
   speechPromptsEnabled: false,
+  speechPromptRate: 2,
+  speechPromptVolume: 1,
   sessionStartCountdownSec: 3,
   phaseConfirmationEnabled: false,
   diagnosticsOpen: false,
   debugUnlocked: false
 };
+
+const supportedThemeModes = new Set<ThemeMode>([
+  "standard",
+  "daylight",
+  "red_safe",
+  "ultrared",
+]);
 
 function resolveStoredSessionStartCountdownSec(
   rawPreferences: LegacyPreferenceState,
@@ -61,9 +74,27 @@ function resolveStoredSessionStartCountdownSec(
   return Math.min(10, Math.max(0, Math.round(rawValue)));
 }
 
+export function clampSpeechPromptRate(rawValue: number) {
+  if (!Number.isFinite(rawValue)) {
+    return defaultPreferences.speechPromptRate;
+  }
+
+  return Math.min(3, Math.max(1, Math.round(rawValue * 4) / 4));
+}
+
+export function clampSpeechPromptVolume(rawValue: number) {
+  if (!Number.isFinite(rawValue)) {
+    return defaultPreferences.speechPromptVolume;
+  }
+
+  return Math.min(1, Math.max(0, Math.round(rawValue * 100) / 100));
+}
+
 function resolveStoredThemeMode(rawPreferences: LegacyPreferenceState) {
-  if (rawPreferences.themeMode) {
-    return rawPreferences.themeMode;
+  const rawThemeMode = rawPreferences.themeMode;
+
+  if (rawThemeMode && supportedThemeModes.has(rawThemeMode)) {
+    return rawThemeMode;
   }
 
   if (rawPreferences.redSafeEnabled === true) {
@@ -94,6 +125,10 @@ export function loadPreferences() {
       ...defaultPreferences,
       ...parsed,
       themeMode: resolveStoredThemeMode(parsed),
+      speechPromptRate: clampSpeechPromptRate(parsed.speechPromptRate ?? NaN),
+      speechPromptVolume: clampSpeechPromptVolume(
+        parsed.speechPromptVolume ?? NaN,
+      ),
       sessionStartCountdownSec: resolveStoredSessionStartCountdownSec(parsed)
     } satisfies PreferenceState;
 
@@ -106,6 +141,8 @@ export function loadPreferences() {
         animationsEnabled: preferences.animationsEnabled,
         buttonSoundsEnabled: preferences.buttonSoundsEnabled,
         speechPromptsEnabled: preferences.speechPromptsEnabled,
+        speechPromptRate: preferences.speechPromptRate,
+        speechPromptVolume: preferences.speechPromptVolume,
         sessionStartCountdownSec: preferences.sessionStartCountdownSec,
         phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
         diagnosticsOpen: preferences.diagnosticsOpen,
@@ -139,6 +176,8 @@ export function savePreferences(preferences: PreferenceState) {
       animationsEnabled: preferences.animationsEnabled,
       buttonSoundsEnabled: preferences.buttonSoundsEnabled,
       speechPromptsEnabled: preferences.speechPromptsEnabled,
+      speechPromptRate: preferences.speechPromptRate,
+      speechPromptVolume: preferences.speechPromptVolume,
       sessionStartCountdownSec: preferences.sessionStartCountdownSec,
       phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
       diagnosticsOpen: preferences.diagnosticsOpen,

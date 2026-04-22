@@ -77,6 +77,14 @@ body {
   color: var(--text);
 }
 
+body[data-theme-mode="daylight"] {
+  background:
+    radial-gradient(circle at top left, rgba(241, 205, 152, 0.38), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(221, 145, 105, 0.2), transparent 30%),
+    #f4ecdd;
+  color: #2f241c;
+}
+
 button,
 input,
 select {
@@ -978,6 +986,47 @@ button {
     background-color var(--motion-fast) ease;
 }
 
+.field-range {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.field-range:focus-visible {
+  outline: none;
+}
+
+.field-range::-webkit-slider-runnable-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(248, 240, 222, 0.16);
+}
+
+.field-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: -0.35rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--feature-ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.field-range::-moz-range-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(248, 240, 222, 0.16);
+}
+
+.field-range::-moz-range-thumb {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--feature-ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
 .field-input:focus,
 .field-select:focus {
   outline: none;
@@ -1555,6 +1604,63 @@ button {
   border-radius: 999px;
 }
 
+.theme-warning-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  align-items: end;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    1rem
+    calc(1rem + env(safe-area-inset-bottom));
+}
+
+.theme-warning-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.theme-warning-dialog__surface {
+  position: relative;
+  width: min(100%, 36rem);
+  margin: 0 auto;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(180deg, rgba(8, 10, 11, 0.96), rgba(8, 10, 11, 0.9)),
+    var(--surface-strong);
+  padding: 1.3rem;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  display: grid;
+  gap: 1rem;
+}
+
+.theme-warning-dialog__tip-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.theme-warning-dialog__tip-card {
+  background: rgba(8, 10, 11, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.theme-warning-dialog__tip-card h3 {
+  margin: 0 0 0.55rem;
+  color: var(--feature-ink);
+}
+
+.theme-warning-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .inline-link {
   color: var(--text);
   text-decoration-color: var(--accent-border);
@@ -1633,6 +1739,151 @@ button {
   cursor: default;
 }
 
+.app-shell.is-daylight {
+  --bg: #f4ecdd;
+  --surface: rgba(255, 250, 242, 0.84);
+  --surface-strong: rgba(255, 253, 248, 0.96);
+  --surface-soft: rgba(133, 97, 63, 0.08);
+  --border: rgba(113, 88, 67, 0.18);
+  --text: #2f241c;
+  --text-soft: rgba(47, 36, 28, 0.76);
+  --text-muted: rgba(47, 36, 28, 0.58);
+  --amber: #9a5c2c;
+  --ember: #b56b43;
+  --red: #a84b41;
+  --success: #4a7a5d;
+  --warn: #9a5a2f;
+  --danger: #b74e43;
+  --app-glow-a: rgba(241, 205, 152, 0.34);
+  --app-glow-b: rgba(221, 145, 105, 0.2);
+  --backdrop-glow-a: rgba(244, 220, 183, 0.48);
+  --backdrop-glow-b: rgba(221, 145, 105, 0.18);
+  --accent-surface-a: rgba(223, 168, 111, 0.24);
+  --accent-surface-b: rgba(190, 117, 73, 0.18);
+  --accent-border: rgba(168, 94, 55, 0.42);
+  --accent-ring-soft: rgba(201, 140, 88, 0.28);
+  --accent-glow: rgba(190, 117, 73, 0.14);
+  --tone-amber-bg: rgba(223, 168, 111, 0.16);
+  --tone-ember-bg: rgba(190, 117, 73, 0.12);
+  --tone-red-bg: rgba(168, 75, 65, 0.12);
+  --status-ok-bg: rgba(74, 122, 93, 0.12);
+  --status-ok-border: rgba(74, 122, 93, 0.22);
+  --status-limit-bg: rgba(154, 90, 47, 0.12);
+  --status-limit-border: rgba(154, 90, 47, 0.22);
+  --status-danger-bg: rgba(183, 78, 67, 0.12);
+  --status-danger-border: rgba(183, 78, 67, 0.24);
+  --panel-inner-border: rgba(113, 88, 67, 0.14);
+  --shadow: 0 20px 56px rgba(120, 96, 74, 0.16);
+  --title-ink: #7b3d24;
+  --feature-ink: #8c4a29;
+  --feature-ink-muted: rgba(140, 74, 41, 0.72);
+  --focus-ring-edge: rgba(156, 85, 44, 0.92);
+  --focus-ring-glow: rgba(201, 140, 88, 0.22);
+  --brand-icon-filter: sepia(0.2) saturate(0.8) hue-rotate(-8deg) brightness(0.92);
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: light;
+}
+
+.app-shell.is-daylight .app-backdrop {
+  background:
+    radial-gradient(circle at 20% 20%, var(--backdrop-glow-a), transparent 36%),
+    radial-gradient(circle at 80% 0%, var(--backdrop-glow-b), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 46%);
+}
+
+.app-shell.is-daylight .topbar {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 247, 0.9),
+    rgba(247, 239, 227, 0.94)
+  );
+  box-shadow:
+    0 18px 44px rgba(120, 96, 74, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.app-shell.is-daylight .guide-card {
+  background: rgba(255, 251, 245, 0.72);
+}
+
+.app-shell.is-daylight .panel--inner {
+  background: rgba(247, 239, 228, 0.72);
+}
+
+.app-shell.is-daylight .field-input,
+.app-shell.is-daylight .field-select,
+.app-shell.is-daylight .toggle-button,
+.app-shell.is-daylight .primary-button,
+.app-shell.is-daylight .secondary-button,
+.app-shell.is-daylight .icon-button,
+.app-shell.is-daylight .bottom-nav button,
+.app-shell.is-daylight .runtime-button,
+.app-shell.is-daylight .mix-mode-card,
+.app-shell.is-daylight .chip-button,
+.app-shell.is-daylight .theme-mode-button {
+  background: rgba(255, 253, 249, 0.92);
+  color: var(--text);
+}
+
+.app-shell.is-daylight .secondary-button,
+.app-shell.is-daylight .icon-button,
+.app-shell.is-daylight .topbar-action {
+  background: rgba(247, 239, 228, 0.86);
+}
+
+.app-shell.is-daylight .fact-row,
+.app-shell.is-daylight .timeline-step,
+.app-shell.is-daylight .phase-pill,
+.app-shell.is-daylight .event-row,
+.app-shell.is-daylight .hc110-guidance-block {
+  background: rgba(251, 245, 236, 0.8);
+}
+
+.app-shell.is-daylight .diagnostic-block,
+.app-shell.is-daylight .debug-log-row {
+  background: rgba(250, 244, 235, 0.9);
+}
+
+.app-shell.is-daylight .debug-log-detail {
+  background: rgba(140, 104, 72, 0.08);
+}
+
+.app-shell.is-daylight .setup-warning-dock__surface {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 247, 238, 0.98),
+    rgba(251, 236, 223, 0.99)
+  );
+  box-shadow:
+    0 -14px 34px rgba(120, 96, 74, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.app-shell.is-daylight .bottom-nav {
+  background: linear-gradient(
+    180deg,
+    rgba(250, 244, 233, 0.97),
+    rgba(245, 236, 221, 0.99)
+  );
+  box-shadow: 0 -18px 44px rgba(120, 96, 74, 0.14);
+}
+
+.app-shell.is-daylight .toast {
+  background: rgba(255, 252, 246, 0.94);
+}
+
+.app-shell.is-daylight .topbar-action:disabled {
+  border-color: rgba(113, 88, 67, 0.1);
+}
+
+.app-shell.is-daylight .session-notice-overlay__backdrop {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(243, 200, 135, 0.3), transparent 30%),
+    radial-gradient(circle at 50% 62%, rgba(240, 129, 88, 0.2), transparent 34%),
+    rgba(246, 239, 227, 0.96);
+}
+
 .app-shell.is-red-safe {
   --bg: #060304;
   --surface: rgba(24, 4, 6, 0.84);
@@ -1674,6 +1925,13 @@ button {
 
 .app-shell.is-red-safe .topbar {
   background: rgba(22, 3, 5, 0.9);
+}
+
+.app-shell.is-red-safe .theme-warning-dialog__surface,
+.app-shell.is-ultrared .theme-warning-dialog__surface {
+  background:
+    linear-gradient(180deg, rgba(22, 3, 5, 0.96), rgba(10, 1, 2, 0.94)),
+    var(--surface-strong);
 }
 
 .app-shell.is-ultrared {
@@ -1840,7 +2098,7 @@ button {
   }
 
   .theme-mode-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .recipe-browser-toolbar {

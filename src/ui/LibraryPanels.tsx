@@ -84,6 +84,8 @@ interface SettingsPanelProps {
   onToggleAnimations: () => void;
   onToggleButtonSounds: () => void;
   onToggleSpeechPrompts: () => void;
+  onSetSpeechPromptRate: (nextValue: number) => void;
+  onSetSpeechPromptVolume: (nextValue: number) => void;
   onSetSessionStartCountdown: (nextValue: number) => void;
   onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
@@ -107,6 +109,8 @@ export function SettingsPanel({
   onToggleAnimations,
   onToggleButtonSounds,
   onToggleSpeechPrompts,
+  onSetSpeechPromptRate,
+  onSetSpeechPromptVolume,
   onSetSessionStartCountdown,
   onTogglePhaseConfirmation,
   onToggleDiagnostics,
@@ -144,8 +148,9 @@ export function SettingsPanel({
             </span>
           </h3>
           <p>
-            White light is the default. Reduced light softens the shell, and Red
-            safe keeps it fully red-first for darkroom work.
+            Paper light opens the app for bright-room planning. White light
+            keeps the neutral shell, Reduced light softens it, and Red safe
+            stays fully red-first for darkroom work.
           </p>
         </div>
         <div
@@ -155,12 +160,24 @@ export function SettingsPanel({
         >
           <button
             type="button"
+            className={`theme-mode-button ${preferences.themeMode === "daylight" ? "is-active" : ""}`}
+            aria-pressed={preferences.themeMode === "daylight"}
+            onClick={() => onSelectThemeMode("daylight")}
+          >
+            <span className="button-label">
+              <SunIcon aria-hidden="true" />
+              <span>Daylight</span>
+            </span>
+            <strong>Paper light</strong>
+          </button>
+          <button
+            type="button"
             className={`theme-mode-button ${preferences.themeMode === "standard" ? "is-active" : ""}`}
             aria-pressed={preferences.themeMode === "standard"}
             onClick={() => onSelectThemeMode("standard")}
           >
             <span className="button-label">
-              <SunIcon aria-hidden="true" />
+              <SparkIcon aria-hidden="true" />
               <span>Standard</span>
             </span>
             <strong>White light</strong>
@@ -279,6 +296,49 @@ export function SettingsPanel({
           </span>
           <strong>{preferences.speechPromptsEnabled ? "On" : "Off"}</strong>
         </button>
+        <label className="field-shell">
+          <span className="field-label">
+            Voice speed
+            <em>{preferences.speechPromptRate.toFixed(2).replace(/\.00$/, "")}x</em>
+          </span>
+          <input
+            className="field-range"
+            type="range"
+            min={1}
+            max={3}
+            step={0.25}
+            value={preferences.speechPromptRate}
+            onChange={(event) =>
+              onSetSpeechPromptRate(Number(event.target.value))
+            }
+            aria-label="Voice speed"
+          />
+          <span className="field-help">
+            Makes each spoken prompt play faster without changing the timing of
+            the darkroom schedule. Default: 2x.
+          </span>
+        </label>
+        <label className="field-shell">
+          <span className="field-label">
+            Voice volume
+            <em>{Math.round(preferences.speechPromptVolume * 100)}%</em>
+          </span>
+          <input
+            className="field-range"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={preferences.speechPromptVolume}
+            onChange={(event) =>
+              onSetSpeechPromptVolume(Number(event.target.value))
+            }
+            aria-label="Voice volume"
+          />
+          <span className="field-help">
+            Controls the loudness of bundled offline voice prompts.
+          </span>
+        </label>
         <button
           type="button"
           className="toggle-button"

@@ -26,6 +26,30 @@ function appendEvent(
   };
 }
 
+function getPendingPauseDurationMs(
+  state: ActiveSessionState,
+  nowMs: number,
+) {
+  if (!state.pauseStartedAtMs) {
+    return 0;
+  }
+
+  return Math.max(0, nowMs - state.pauseStartedAtMs);
+}
+
+function settlePendingPause(state: ActiveSessionState, nowMs: number) {
+  const pauseDurationMs =
+    state.status === "paused" || state.status === "awaiting_phase_start"
+      ? getPendingPauseDurationMs(state, nowMs)
+      : 0;
+
+  return {
+    ...state,
+    pauseStartedAtMs: null,
+    totalPausedMs: state.totalPausedMs + pauseDurationMs,
+  };
+}
+
 export function createActiveSession(plan: SessionPlan, nowMs: number) {
   return {
     sessionId: `session-${Math.random().toString(36).slice(2, 10)}`,
@@ -113,16 +137,10 @@ export function resumeSession(state: ActiveSessionState, nowMs: number) {
     return state;
   }
 
-  const pauseDuration = state.pauseStartedAtMs
-    ? nowMs - state.pauseStartedAtMs
-    : 0;
-
   return appendEvent(
     {
-      ...state,
+      ...settlePendingPause(state, nowMs),
       status: "running",
-      pauseStartedAtMs: null,
-      totalPausedMs: state.totalPausedMs + pauseDuration,
       lastPersistedAtMs: nowMs,
     },
     "resumed",
@@ -160,16 +178,10 @@ export function confirmPhaseStart(
     return state;
   }
 
-  const pauseDuration = state.pauseStartedAtMs
-    ? nowMs - state.pauseStartedAtMs
-    : 0;
-
   return appendEvent(
     {
-      ...state,
+      ...settlePendingPause(state, nowMs),
       status: "running",
-      pauseStartedAtMs: null,
-      totalPausedMs: state.totalPausedMs + pauseDuration,
       lastPersistedAtMs: nowMs,
     },
     "phase_wait_confirmed",
@@ -186,20 +198,14 @@ export function completeManualPhase(
   if (state.status !== "awaiting_phase_start") {
     return state;
   }
-
-  const pauseDuration = state.pauseStartedAtMs
-    ? nowMs - state.pauseStartedAtMs
-    : 0;
   const completedManualPhaseIds = Array.from(
     new Set([...(state.completedManualPhaseIds ?? []), phaseId]),
   );
 
   return appendEvent(
     {
-      ...state,
+      ...settlePendingPause(state, nowMs),
       status: "running",
-      pauseStartedAtMs: null,
-      totalPausedMs: state.totalPausedMs + pauseDuration,
       completedManualPhaseIds,
       lastPersistedAtMs: nowMs,
     },
@@ -225,10 +231,13 @@ export function confirmRecovery(state: ActiveSessionState, nowMs: number) {
 }
 
 export function abortSession(state: ActiveSessionState, nowMs: number) {
+  const settledState = settlePendingPause(state, nowMs);
+
   return appendEvent(
     {
-      ...state,
+      ...settledState,
       status: "aborted",
+      scheduledStartAtMs: null,
       lastPersistedAtMs: nowMs,
     },
     "aborted",
@@ -237,10 +246,13 @@ export function abortSession(state: ActiveSessionState, nowMs: number) {
 }
 
 export function completeSession(state: ActiveSessionState, nowMs: number) {
+  const settledState = settlePendingPause(state, nowMs);
+
   return appendEvent(
     {
-      ...state,
+      ...settledState,
       status: "completed",
+      scheduledStartAtMs: null,
       lastPersistedAtMs: nowMs,
     },
     "completed",
@@ -261,9 +273,17 @@ function getEffectiveElapsedMs(state: ActiveSessionState, nowMs: number) {
   }
 
   if (state.status === "completed" || state.status === "aborted") {
+    const pendingPauseDurationMs = getPendingPauseDurationMs(
+      state,
+      state.lastPersistedAtMs,
+    );
+
     return Math.max(
       0,
-      state.lastPersistedAtMs - state.startEpochMs - state.totalPausedMs,
+      state.lastPersistedAtMs -
+        state.startEpochMs -
+        state.totalPausedMs -
+        pendingPauseDurationMs,
     );
   }
 

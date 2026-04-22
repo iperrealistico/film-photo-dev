@@ -189,7 +189,25 @@ export const sessionNoticeCatalog = {
     ["cue_soft"],
     1000,
   ),
+  pour_pre_soak_water: createNoticeSpec(
+    "pour_pre_soak_water",
+    "Pour pre-soak water",
+    "Pour pre-soak water",
+    ["fill"],
+  ),
+  drain_pre_soak: createNoticeSpec(
+    "drain_pre_soak",
+    "Drain pre-soak",
+    "Drain pre-soak",
+    ["drain"],
+  ),
   pre_soak: createNoticeSpec("pre_soak", "Pre-soak", "Pre-soak", ["phase_start"]),
+  pour_developer: createNoticeSpec(
+    "pour_developer",
+    "Pour developer",
+    "Pour developer",
+    ["fill"],
+  ),
   developer: createNoticeSpec("developer", "Developer", "Developer", ["phase_start"]),
   transition_to_blix: createNoticeSpec(
     "transition_to_blix",
@@ -197,14 +215,23 @@ export const sessionNoticeCatalog = {
     "Transition to blix",
     ["phase_start"],
   ),
+  pour_blix: createNoticeSpec("pour_blix", "Pour blix", "Pour blix", ["fill"]),
   blix: createNoticeSpec("blix", "Blix", "Blix", ["phase_start"]),
+  drain_blix: createNoticeSpec("drain_blix", "Drain blix", "Drain blix", ["drain"]),
   transition_to_wash: createNoticeSpec(
     "transition_to_wash",
     "Transition to wash",
     "Transition to wash",
     ["phase_start"],
   ),
+  drain_wash: createNoticeSpec("drain_wash", "Drain wash", "Drain wash", ["drain"]),
   wash: createNoticeSpec("wash", "Wash", "Wash", ["phase_start"]),
+  pour_final_rinse: createNoticeSpec(
+    "pour_final_rinse",
+    "Pour final rinse",
+    "Pour final rinse",
+    ["fill"],
+  ),
   final_rinse: createNoticeSpec(
     "final_rinse",
     "Final rinse",
@@ -219,8 +246,8 @@ export const sessionNoticeCatalog = {
   ),
   fill_stop_bath: createNoticeSpec(
     "fill_stop_bath",
-    "Fill stop bath",
-    "Fill stop bath",
+    "Pour stop bath",
+    "Pour stop bath",
     ["fill"],
   ),
   stop_bath: createNoticeSpec(
@@ -230,7 +257,7 @@ export const sessionNoticeCatalog = {
     ["phase_start"],
   ),
   drain_stop: createNoticeSpec("drain_stop", "Drain stop", "Drain stop", ["drain"]),
-  fill_fixer: createNoticeSpec("fill_fixer", "Fill fixer", "Fill fixer", ["fill"]),
+  fill_fixer: createNoticeSpec("fill_fixer", "Pour fixer", "Pour fixer", ["fill"]),
   fixer: createNoticeSpec("fixer", "Fixer", "Fixer", ["phase_start"]),
   drain_fixer: createNoticeSpec(
     "drain_fixer",
@@ -238,10 +265,16 @@ export const sessionNoticeCatalog = {
     "Drain fixer",
     ["drain"],
   ),
+  drain_hypo_clear: createNoticeSpec(
+    "drain_hypo_clear",
+    "Drain hypo clear",
+    "Drain hypo clear",
+    ["drain"],
+  ),
   fill_hypo_clear: createNoticeSpec(
     "fill_hypo_clear",
-    "Fill hypo clear",
-    "Fill hypo clear",
+    "Pour hypo clear",
+    "Pour hypo clear",
     ["fill"],
   ),
   hypo_clear: createNoticeSpec(
@@ -250,12 +283,29 @@ export const sessionNoticeCatalog = {
     "Hypo clear",
     ["phase_start"],
   ),
-  fill_wash: createNoticeSpec("fill_wash", "Fill wash", "Fill wash", ["fill"]),
+  fill_wash: createNoticeSpec(
+    "fill_wash",
+    "Pour wash water",
+    "Pour wash water",
+    ["fill"],
+  ),
+  pour_wetting_agent: createNoticeSpec(
+    "pour_wetting_agent",
+    "Pour wetting agent",
+    "Pour wetting agent",
+    ["fill"],
+  ),
   wetting_agent: createNoticeSpec(
     "wetting_agent",
     "Wetting agent",
     "Wetting agent",
     ["phase_start"],
+  ),
+  pour_monobath: createNoticeSpec(
+    "pour_monobath",
+    "Pour monobath",
+    "Pour monobath",
+    ["fill"],
   ),
   monobath: createNoticeSpec("monobath", "Monobath", "Monobath", ["phase_start"]),
   drain_monobath: createNoticeSpec(
@@ -306,12 +356,19 @@ export const noticeAudioManifest = Object.fromEntries(
 ) as Record<SessionNoticeId, string>;
 
 const phaseNoticeIdByPhaseId: Partial<Record<string, SessionNoticeId>> = {
+  "fill-presoak": "pour_pre_soak_water",
+  "drain-presoak": "drain_pre_soak",
   presoak: "pre_soak",
+  "fill-dev": "pour_developer",
   developer: "developer",
   transition: "transition_to_blix",
+  "fill-blix": "pour_blix",
   blix: "blix",
+  "drain-blix": "drain_blix",
   "transition-wash": "transition_to_wash",
   wash: "wash",
+  "drain-wash": "drain_wash",
+  "fill-final-rinse": "pour_final_rinse",
   "final-rinse": "final_rinse",
   "drain-dev": "drain_developer",
   "fill-stop": "fill_stop_bath",
@@ -320,10 +377,13 @@ const phaseNoticeIdByPhaseId: Partial<Record<string, SessionNoticeId>> = {
   "fill-fix": "fill_fixer",
   fix: "fixer",
   "drain-fix": "drain_fixer",
+  "drain-hypo": "drain_hypo_clear",
   "fill-hypo": "fill_hypo_clear",
   hypo: "hypo_clear",
   "fill-wash": "fill_wash",
+  "fill-wetting": "pour_wetting_agent",
   wetting: "wetting_agent",
+  "fill-mono": "pour_monobath",
   monobath: "monobath",
   "drain-monobath": "drain_monobath",
   "wash-minimal-1": "minimal_wash_5",
@@ -445,7 +505,13 @@ export function stopSessionNoticeVoice() {
   activeVoiceAudio = null;
 }
 
-export async function playSessionNoticeVoice(spec: SessionNoticeSpec) {
+export async function playSessionNoticeVoice(
+  spec: SessionNoticeSpec,
+  options?: {
+    playbackRate?: number;
+    volume?: number;
+  },
+) {
   if (typeof window === "undefined" || typeof Audio === "undefined") {
     return;
   }
@@ -454,6 +520,11 @@ export async function playSessionNoticeVoice(spec: SessionNoticeSpec) {
 
   const audio = new Audio(resolveSessionNoticeAudioUrl(spec));
   audio.preload = "auto";
+  audio.playbackRate = Math.min(
+    3,
+    Math.max(1, options?.playbackRate ?? 2),
+  );
+  audio.volume = Math.min(1, Math.max(0, options?.volume ?? 1));
   activeVoiceAudio = audio;
 
   const releaseActiveAudio = () => {

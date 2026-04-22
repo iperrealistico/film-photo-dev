@@ -337,6 +337,24 @@ function buildPhase(
   };
 }
 
+function buildFillPhase(
+  id: string,
+  label: string,
+  durationSec: number,
+  detail: string,
+) {
+  return buildPhase(id, label, "fill", durationSec, detail);
+}
+
+function buildDrainPhase(
+  id: string,
+  label: string,
+  durationSec: number,
+  detail: string,
+) {
+  return buildPhase(id, label, "drain", durationSec, detail);
+}
+
 function interpolateBwTemperatureFactor(temperatureC: number) {
   if (temperatureC <= bwTemperatureCompensationFactors[0].tempC) {
     return bwTemperatureCompensationFactors[0].factor;
@@ -516,6 +534,8 @@ function planCs41(
   const pushPullStops = getNumber(values, "pushPullStops");
   const chemistryState = getString(values, "chemistryState");
   const processedUnits = getCs41ProcessedUnits(values, chemistryState);
+  const presoakEnabled = getBoolean(values, "presoakEnabled");
+  const presoakSec = Math.max(30, getNumber(values, "presoakSec") || 60);
   const blixTimeMin = getNumber(values, "blixTimeMin");
   const extendBlixWithReuse = getBoolean(values, "extendBlixWithReuse");
   const transitionDelaySec = getNumber(values, "transitionDelaySec");
@@ -557,6 +577,7 @@ function planCs41(
       : chemistryState === "reused" && extendBlixWithReuse
         ? `Initial 10 seconds of agitation, then interval inversions every 30 seconds. Optional blix extension is active. Base blix time × ${reuseMultiplier.toFixed(2)} to match the developer reuse increase.`
         : "Initial 10 seconds of agitation, then interval inversions every 30 seconds. Reuse does not change the timer.";
+  const processStepSec = Math.max(5, transitionDelaySec);
 
   const developerCues =
     agitationMode === "continuous"
@@ -634,20 +655,34 @@ function planCs41(
         );
 
   const phaseList = [
-    buildPhase(
-      "presoak",
-      "Pre-soak",
-      "rinse",
-      60,
-      "One-minute pre-soak before the developer.",
-      [
-        {
-          id: "presoak-next",
-          atSec: Math.max(1, 60 - warningLeadSec),
-          label: "Next: developer",
-          style: "soft",
-        },
-      ],
+    ...(presoakEnabled
+      ? [
+          buildFillPhase(
+            "fill-presoak",
+            "Pour pre-soak water",
+            processStepSec,
+            "Fill the tank with pre-soak water at the same temperature as the developer.",
+          ),
+          buildPhase(
+            "presoak",
+            "Pre-soak",
+            "rinse",
+            presoakSec,
+            "Hold the loaded pre-soak water in the tank before you drain it.",
+          ),
+          buildDrainPhase(
+            "drain-presoak",
+            "Drain pre-soak",
+            processStepSec,
+            "Drain the pre-soak water completely before the developer goes in.",
+          ),
+        ]
+      : []),
+    buildFillPhase(
+      "fill-dev",
+      "Pour developer",
+      processStepSec,
+      "Pour the developer into the tank and secure the lid before the timer advances.",
     ),
     buildPhase(
       "developer",
@@ -659,36 +694,30 @@ function planCs41(
         : developerGuidance.detail,
       developerCues,
     ),
-    buildPhase(
-      "transition",
-      "Transition to blix",
-      "transition",
-      transitionDelaySec,
-      "Drain developer, refill, and get ready for blix.",
-      [
-        {
-          id: "transition-ready",
-          atSec: Math.max(1, transitionDelaySec - warningLeadSec),
-          label: "Next: blix",
-          style: "soft",
-        },
-      ],
+    buildDrainPhase(
+      "drain-dev",
+      "Drain developer",
+      processStepSec,
+      "Drain the developer completely before the blix.",
+    ),
+    buildFillPhase(
+      "fill-blix",
+      "Pour blix",
+      processStepSec,
+      "Pour blix into the tank and secure the lid before blix timing starts.",
     ),
     buildPhase("blix", "Blix", "blix", blixSec, blixDetail, blixCues),
-    buildPhase(
-      "transition-wash",
-      "Transition to wash",
-      "transition",
-      transitionDelaySec,
-      "Drain blix and move to the wash.",
-      [
-        {
-          id: "transition-wash-ready",
-          atSec: Math.max(1, transitionDelaySec - warningLeadSec),
-          label: "Next: wash",
-          style: "soft",
-        },
-      ],
+    buildDrainPhase(
+      "drain-blix",
+      "Drain blix",
+      processStepSec,
+      "Drain the blix before you move to the wash.",
+    ),
+    buildFillPhase(
+      "fill-wash",
+      "Pour wash water",
+      processStepSec,
+      "Fill the tank with fresh wash water.",
     ),
     buildPhase(
       "wash",
@@ -696,14 +725,18 @@ function planCs41(
       "wash",
       washSec,
       "Three-minute wash after blix.",
-      [
-        {
-          id: "wash-next",
-          atSec: Math.max(1, washSec - warningLeadSec),
-          label: "Next: optional final rinse",
-          style: "soft",
-        },
-      ],
+    ),
+    buildDrainPhase(
+      "drain-wash",
+      "Drain wash",
+      processStepSec,
+      "Drain the wash water before the final rinse goes in.",
+    ),
+    buildFillPhase(
+      "fill-final-rinse",
+      "Pour final rinse",
+      processStepSec,
+      "Pour the final rinse or stabilizer into the tank.",
     ),
     buildPhase(
       "final-rinse",
@@ -783,9 +816,9 @@ function planCs41(
     ),
     makeTraceEntry(
       "Post-blix steps",
-      "Wash 3 min + optional final rinse 45 sec",
-      "CineStill standard processing steps",
-      "The app now keeps the wash and optional final rinse inside the guided timeline.",
+      "Guided pour/drain handoffs + wash 3 min + final rinse 45 sec",
+      "CineStill standard processing steps plus guided handoff timing",
+      "The app now guides the pre-soak, bath changes, wash, and final rinse as explicit timed handoff steps.",
     ),
   ];
 
@@ -869,11 +902,14 @@ function planCs41(
     warnings,
     readinessChecklist: [
       "Bring the developer and blix up to temperature before start.",
+      presoakEnabled
+        ? "Keep the pre-soak water beside the developer at the same temperature."
+        : "Skip the pre-soak and have the developer ready to pour first.",
       "Set bottles left-to-right in process order.",
       "Keep wash water ready before the blix finishes.",
     ],
     nextSteps: [
-      "The guided timeline now continues through wash and the optional final rinse.",
+      "The guided timeline now includes explicit pour and drain prompts between every Cs41 bath.",
       "If you are pushing color, double-check developer freshness before committing film.",
     ],
     inputSnapshot: values,
@@ -892,6 +928,8 @@ function planHc110(
   const agitationMode = getString(values, "agitationMode");
   const dilution = getNumber(values, "dilution");
   const tankVolumeMl = getNumber(values, "tankVolumeMl");
+  const presoakEnabled = getBoolean(values, "presoakEnabled");
+  const presoakSec = Math.max(30, getNumber(values, "presoakSec") || 60);
   const stopBathSec = getNumber(values, "stopBathSec");
   const fixerSec = getNumber(values, "fixerSec");
   const washSec = getNumber(values, "washSec");
@@ -999,6 +1037,35 @@ function planHc110(
   );
 
   const phaseList: PhaseDefinition[] = [
+    ...(presoakEnabled
+      ? [
+          buildFillPhase(
+            "fill-presoak",
+            "Pour pre-soak water",
+            fillSec,
+            "Fill the tank with developer-temperature water for the optional pre-soak.",
+          ),
+          buildPhase(
+            "presoak",
+            "Pre-soak",
+            "rinse",
+            presoakSec,
+            "Optional water pre-soak before developer.",
+          ),
+          buildDrainPhase(
+            "drain-presoak",
+            "Drain pre-soak",
+            drainSec,
+            "Drain the pre-soak water completely before developer.",
+          ),
+        ]
+      : []),
+    buildFillPhase(
+      "fill-dev",
+      "Pour developer",
+      fillSec,
+      "Pour HC-110 working solution into the tank and secure the lid before development starts.",
+    ),
     buildPhase(
       "developer",
       "Developer",
@@ -1009,17 +1076,15 @@ function planHc110(
         : `Initial ${Math.max(1, Math.round(inversions))} inversion cycles, then interval cues every 30 seconds.`,
       developerCues,
     ),
-    buildPhase(
+    buildDrainPhase(
       "drain-dev",
       "Drain developer",
-      "drain",
       drainSec,
       "Pour out the developer.",
     ),
-    buildPhase(
+    buildFillPhase(
       "fill-stop",
       "Fill stop bath",
-      "fill",
       fillSec,
       "Fill the tank with stop bath.",
     ),
@@ -1038,17 +1103,15 @@ function planHc110(
         },
       ]),
     ),
-    buildPhase(
+    buildDrainPhase(
       "drain-stop",
       "Drain stop",
-      "drain",
       drainSec,
       "Drain before fixer.",
     ),
-    buildPhase(
+    buildFillPhase(
       "fill-fix",
       "Fill fixer",
-      "fill",
       fillSec,
       "Fill the tank with fixer.",
     ),
@@ -1060,21 +1123,19 @@ function planHc110(
       `Continuous first 30 seconds, then ${Math.max(1, Math.round(inversions))} inversion cycles every 30 seconds.`,
       fixCues,
     ),
+    buildDrainPhase(
+      "drain-fix",
+      "Drain fixer",
+      drainSec,
+      hypoEnabled ? "Drain before hypo clear." : "Drain the fixer before the wash.",
+    ),
   ];
 
   if (hypoEnabled) {
     phaseList.push(
-      buildPhase(
-        "drain-fix",
-        "Drain fixer",
-        "drain",
-        drainSec,
-        "Drain before hypo clear.",
-      ),
-      buildPhase(
+      buildFillPhase(
         "fill-hypo",
         "Fill hypo clear",
-        "fill",
         fillSec,
         "Fill the tank with hypo clear.",
       ),
@@ -1093,12 +1154,35 @@ function planHc110(
           },
         ]),
       ),
+      buildDrainPhase(
+        "drain-hypo",
+        "Drain hypo clear",
+        drainSec,
+        "Drain the hypo clear before the wash.",
+      ),
     );
   }
 
   phaseList.push(
-    buildPhase("fill-wash", "Fill wash", "fill", fillSec, "Prepare for wash."),
+    buildFillPhase(
+      "fill-wash",
+      "Fill wash",
+      fillSec,
+      "Fill the tank with fresh wash water.",
+    ),
     buildPhase("wash", "Wash", "wash", washSec, "Final wash before drying."),
+    buildDrainPhase(
+      "drain-wash",
+      "Drain wash",
+      drainSec,
+      "Drain the wash water before the wetting agent.",
+    ),
+    buildFillPhase(
+      "fill-wetting",
+      "Pour wetting agent",
+      fillSec,
+      "Pour wetting agent into the tank before the final minute.",
+    ),
     buildPhase(
       "wetting",
       "Wetting agent",
@@ -1202,6 +1286,12 @@ function planHc110(
     );
   }
 
+  if (presoakEnabled) {
+    warnings.push(
+      `Optional pre-soak is active for ${formatClock(presoakSec)} before developer.`,
+    );
+  }
+
   return {
     id: makeId("plan"),
     recipeId: recipe.id,
@@ -1241,11 +1331,14 @@ function planHc110(
     warnings,
     readinessChecklist: [
       "Confirm the working solution volume and the film load.",
+      presoakEnabled
+        ? "Keep the optional pre-soak water beside the developer at the same temperature."
+        : "Have the developer ready to pour first.",
       "Line up stop, fixer, wash, and wetting agent before you start.",
       "Review the drain and fill steps before the timer begins.",
     ],
     nextSteps: [
-      "If this setup looks right, save it as a preset for your tank.",
+      "The guided session now walks through each pour and drain step from start to finish.",
       "Export diagnostics if you want a copy of the calculation trace for this plan.",
     ],
     inputSnapshot: values,
@@ -1378,6 +1471,7 @@ function buildDf96AgitationCues(
 
 function buildDf96WashPhases(
   washMode: string,
+  fillSec: number,
   drainSec: number,
   washSec: number,
   warningLeadSec: number,
@@ -1434,14 +1528,26 @@ function buildDf96WashPhases(
 
   return [
     drainPhase,
+    buildFillPhase(
+      "fill-wash",
+      "Pour wash water",
+      fillSec,
+      "Fill the tank with fresh wash water after draining the monobath.",
+    ),
     buildPhase("wash", "Wash", "wash", washSec, DF96_STANDARD_WASH_NOTE, [
       {
         id: "wash-finish",
         atSec: Math.max(1, washSec - warningLeadSec),
-        label: "Finish and hang to dry",
+        label: "Next: drain wash",
         style: "soft",
       },
     ]),
+    buildDrainPhase(
+      "drain-wash",
+      "Drain wash",
+      drainSec,
+      "Drain the wash water completely and hang the film to dry.",
+    ),
   ];
 }
 
@@ -1496,10 +1602,13 @@ function planDf96(
   const ratingChoice = getString(values, "ratingChoice");
   const temperatureF = getNumber(values, "temperatureF");
   const agitationMode = getString(values, "agitationMode") as Df96AgitationMode;
+  const presoakEnabled = getBoolean(values, "presoakEnabled");
+  const presoakSec = Math.max(30, getNumber(values, "presoakSec") || 60);
   const chemistryState = getString(values, "chemistryState");
   const processedUnits = getDf96ProcessedUnits(values, chemistryState);
   const extraProcessSec = Math.max(0, getNumber(values, "extraProcessSec"));
   const washMode = getString(values, "washMode");
+  const fillSec = Math.max(5, getNumber(values, "fillSec") || 10);
   const drainSec = Math.max(
     1,
     getNumber(values, "drainSec") || DF96_DRAIN_DEFAULT_SEC,
@@ -1551,8 +1660,43 @@ function planDf96(
     ),
   );
   const phaseList = [
+    ...(presoakEnabled
+      ? [
+          buildFillPhase(
+            "fill-presoak",
+            "Pour pre-soak water",
+            fillSec,
+            "Fill the tank with water at the same temperature as the monobath.",
+          ),
+          buildPhase(
+            "presoak",
+            "Pre-soak",
+            "rinse",
+            presoakSec,
+            "Optional water pre-soak before the monobath.",
+          ),
+          buildDrainPhase(
+            "drain-presoak",
+            "Drain pre-soak",
+            drainSec,
+            "Drain the pre-soak water completely before the monobath.",
+          ),
+        ]
+      : []),
+    buildFillPhase(
+      "fill-mono",
+      "Pour monobath",
+      fillSec,
+      "Pour Df96 into the tank and secure the lid before the monobath starts.",
+    ),
     monobathPhase,
-    ...buildDf96WashPhases(washMode, drainSec, washSec, warningLeadSec),
+    ...buildDf96WashPhases(
+      washMode,
+      fillSec,
+      drainSec,
+      washSec,
+      warningLeadSec,
+    ),
   ];
 
   const calculationTrace: CalculationTraceEntry[] = [
@@ -1637,6 +1781,15 @@ function planDf96(
       DF96_DRAIN_NOTE,
       "manual",
     ),
+    makeTraceEntry(
+      "Pour step time",
+      formatClock(fillSec),
+      "User-configurable DF96 handoff",
+      presoakEnabled
+        ? "Used for the pre-soak fill, monobath fill, and standard wash fill prompts."
+        : "Used for the monobath fill and standard wash fill prompts.",
+      "manual",
+    ),
   ];
 
   const warnings = [
@@ -1671,6 +1824,12 @@ function planDf96(
   if (extraProcessSec > 0) {
     warnings.push(
       `Extra time is active: ${formatClock(extraProcessSec)} above the official minimum.`,
+    );
+  }
+
+  if (presoakEnabled) {
+    warnings.push(
+      `Optional pre-soak is active for ${formatClock(presoakSec)} before the monobath.`,
     );
   }
 
@@ -1733,6 +1892,10 @@ function planDf96(
         value: formatClock(drainSec),
       },
       {
+        label: "Pour step time",
+        value: formatClock(fillSec),
+      },
+      {
         label: "Wash flow",
         value:
           washMode === "minimal"
@@ -1745,6 +1908,9 @@ function planDf96(
     blockingIssues,
     warnings,
     readinessChecklist: [
+      presoakEnabled
+        ? "Keep the pre-soak water beside the monobath at the same temperature."
+        : "Have the monobath ready to pour as soon as the countdown ends.",
       `Confirm ${film.label} is loaded and rated at ${rating?.isoLabel ?? "the chosen ISO"} before you pour Df96.`,
       `Bring the monobath to ${temperatureF}°F${cell ? ` / ${cell.temperatureC}°C` : ""} before you start the timer.`,
       washMode === "minimal"
@@ -1757,7 +1923,7 @@ function planDf96(
             "Adjust the film rating, temperature, or agitation until the combination matches the official Df96 chart.",
           ]
         : [
-            "The live session will cue the official Df96 agitation pattern for the selected method.",
+            "The live session will cue the official Df96 agitation pattern and the pour/drain handoff steps.",
             "If you are reusing Df96, keep your prior-unit count handy for the next session.",
           ],
     inputSnapshot: values,

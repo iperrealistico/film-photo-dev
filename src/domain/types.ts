@@ -6,7 +6,7 @@ export type SourceKind =
   | "curated"
   | "community"
   | "custom";
-export type ThemeMode = "standard" | "red_safe" | "ultrared";
+export type ThemeMode = "standard" | "daylight" | "red_safe" | "ultrared";
 export type MeasurementUnit = "ml" | "cc" | "cl" | "l";
 export type InputType = "select" | "number" | "toggle";
 export type FieldSection = "film" | "chemistry" | "workflow" | "runtime";

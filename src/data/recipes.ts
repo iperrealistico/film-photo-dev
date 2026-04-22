@@ -207,6 +207,29 @@ export const recipes: RecipeDefinition[] = [
         ]
       },
       {
+        id: 'presoakEnabled',
+        label: 'Include pre-soak',
+        type: 'toggle',
+        section: 'workflow',
+        defaultValue: true,
+        helperText:
+          'Adds a guided water pre-soak before developer. Water should match the developer temperature.'
+      },
+      {
+        id: 'presoakSec',
+        label: 'Pre-soak time',
+        type: 'number',
+        section: 'workflow',
+        unit: 'sec',
+        min: 30,
+        max: 180,
+        step: 15,
+        defaultValue: 60,
+        helperText:
+          'How long the loaded pre-soak water stays in the tank before the app tells you to drain it.',
+        isVisible: (values) => values.presoakEnabled === true
+      },
+      {
         id: 'blixTimeMin',
         label: 'Blix time',
         type: 'number',
@@ -229,14 +252,16 @@ export const recipes: RecipeDefinition[] = [
       },
       {
         id: 'transitionDelaySec',
-        label: 'Drain and refill time',
+        label: 'Pour / drain step time',
         type: 'number',
         section: 'runtime',
         unit: 'sec',
         min: 5,
         max: 30,
         step: 5,
-        defaultValue: 10
+        defaultValue: 10,
+        helperText:
+          'Time reserved for each guided pour or drain step between baths.'
       },
       {
         id: 'warningLeadSec',
@@ -353,6 +378,27 @@ export const recipes: RecipeDefinition[] = [
           { value: 'intermittent', label: 'Intermittent' },
           { value: 'continuous', label: 'Continuous' }
         ]
+      },
+      {
+        id: 'presoakEnabled',
+        label: 'Include pre-soak',
+        type: 'toggle',
+        section: 'workflow',
+        defaultValue: false,
+        helperText:
+          'Optional water pre-soak before developer. Use developer-temperature water if you enable it.'
+      },
+      {
+        id: 'presoakSec',
+        label: 'Pre-soak time',
+        type: 'number',
+        section: 'workflow',
+        unit: 'sec',
+        min: 30,
+        max: 180,
+        step: 15,
+        defaultValue: 60,
+        isVisible: (values) => values.presoakEnabled === true
       },
       {
         id: 'tankVolumeMl',
@@ -555,6 +601,27 @@ export const recipes: RecipeDefinition[] = [
         }))
       },
       {
+        id: 'presoakEnabled',
+        label: 'Include pre-soak',
+        type: 'toggle',
+        section: 'workflow',
+        defaultValue: false,
+        helperText:
+          'Optional developer-temperature water pre-soak before the monobath starts.'
+      },
+      {
+        id: 'presoakSec',
+        label: 'Pre-soak time',
+        type: 'number',
+        section: 'workflow',
+        unit: 'sec',
+        min: 30,
+        max: 180,
+        step: 15,
+        defaultValue: 60,
+        isVisible: (values) => values.presoakEnabled === true
+      },
+      {
         id: 'chemistryState',
         label: 'Chemistry condition',
         type: 'select',
@@ -613,6 +680,18 @@ export const recipes: RecipeDefinition[] = [
         max: 30,
         step: 5,
         defaultValue: DF96_DRAIN_DEFAULT_SEC
+      },
+      {
+        id: 'fillSec',
+        label: 'Pour step time',
+        type: 'number',
+        section: 'workflow',
+        unit: 'sec',
+        helperText: 'Reserve enough time to pour pre-soak water, monobath, or wash water into the tank.',
+        min: 5,
+        max: 30,
+        step: 5,
+        defaultValue: 10
       },
       {
         id: 'washSec',

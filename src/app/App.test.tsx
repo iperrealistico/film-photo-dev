@@ -120,6 +120,20 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows an iPhone red-light tips card on the home screen", () => {
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: /iPhone red-light tips/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Reduce your screen brightness before you start\./i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Enable Color Filters if you want the whole screen tinted red\./i),
+    ).toBeInTheDocument();
+  });
+
   it("sizes the bottom navigation grid to the rendered tab count", () => {
     const { container } = render(<App />);
     const bottomNavInner = container.querySelector(".bottom-nav__inner");
@@ -195,6 +209,9 @@ describe("App", () => {
     });
     expect(whiteLightButton).toHaveAttribute("aria-pressed", "true");
     expect(
+      screen.getByRole("button", { name: /Paper light/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: /Export presets/i }),
     ).toBeInTheDocument();
     expect(
@@ -220,10 +237,19 @@ describe("App", () => {
     });
 
     await user.click(
+      within(themeModeGroup).getByRole("button", { name: /Paper light/i }),
+    );
+
+    expect(themeMeta).toHaveAttribute("content", "#f4ecdd");
+
+    await user.click(
       within(themeModeGroup).getByRole("button", { name: /Red safe/i }),
     );
 
     expect(themeMeta).toHaveAttribute("content", "#4a0004");
+    await user.click(
+      screen.getByRole("button", { name: /Continue in red safe/i }),
+    );
 
     await user.click(
       within(themeModeGroup).getByRole("button", { name: /Reduced light/i }),
@@ -232,10 +258,53 @@ describe("App", () => {
     expect(themeMeta).toHaveAttribute("content", "#2a0408");
 
     await user.click(
-      within(themeModeGroup).getByRole("button", { name: /Standard/i }),
+      within(themeModeGroup).getByRole("button", { name: /White light/i }),
     );
 
     expect(themeMeta).toHaveAttribute("content", "#0d0f10");
+  });
+
+  it("shows a dismissable warning when red safe mode is selected", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+    const themeModeGroup = await screen.findByRole("group", {
+      name: /Darkroom light mode/i,
+    });
+    await user.click(
+      within(themeModeGroup).getByRole("button", { name: /Red safe/i }),
+    );
+
+    const warning = await screen.findByRole("alertdialog");
+    expect(warning).toHaveTextContent(
+      /Some device UI will stay outside the red tint/i,
+    );
+    expect(warning).toHaveTextContent(/Enable Color Filters/i);
+    expect(warning).toHaveTextContent(
+      /Reduce White Point to make bright whites less harsh/i,
+    );
+
+    await user.click(
+      within(warning).getByRole("button", { name: /Continue in red safe/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows the same warning when the quick toggle enters red safe mode", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: /^Switch to Red safe$/i }),
+    );
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
   });
 
   it("persists interaction settings after they are changed in settings", async () => {
@@ -315,7 +384,8 @@ describe("App", () => {
     });
 
     expect(voiceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "start_session" }),
+      expect.objectContaining({ id: "pour_monobath" }),
+      expect.objectContaining({ playbackRate: 2, volume: 1 }),
     );
   }, 10000);
 
@@ -368,6 +438,14 @@ describe("App", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(
+      /Pour monobath/i,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
       /Agitate continuously for 30 sec/i,
     );
     expect(
@@ -412,6 +490,16 @@ describe("App", () => {
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_200);
+    });
+
+    expect(
+      voiceSpy.mock.calls.some(
+        ([spec]) => spec?.id === "pour_monobath",
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
     });
 
     expect(
@@ -500,6 +588,14 @@ describe("App", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(
+      /Pour developer/i,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
       /Start continuous agitation/i,
     );
   }, 10000);
@@ -524,6 +620,12 @@ describe("App", () => {
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_200);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Pour developer/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Invert 1/i);
@@ -553,7 +655,7 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(63_200);
+      await vi.advanceTimersByTimeAsync(93_200);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -616,10 +718,10 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(90_000);
+      await vi.advanceTimersByTimeAsync(120_200);
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(/Invert 1/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/Invert/i);
   }, 10000);
 
   it("shows fullscreen notices for phase changes", async () => {
@@ -639,7 +741,7 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(180_000);
+      await vi.advanceTimersByTimeAsync(190_200);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Drain monobath/i);
@@ -682,6 +784,58 @@ describe("App", () => {
     );
   }, 10000);
 
+  it("keeps the session summary frozen when a paused run is stopped", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Cs41 powder kit/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Pause timer/i }));
+    });
+
+    const pausedPhaseText =
+      container.querySelector(".phase-pill.is-current")?.textContent;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(container.querySelector(".phase-pill.is-current")?.textContent).toBe(
+      pausedPhaseText,
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /End session/i }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Session stopped/i);
+    expect(container.querySelector(".phase-pill.is-current")?.textContent).toBe(
+      pausedPhaseText,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(container.querySelector(".phase-pill.is-current")?.textContent).toBe(
+      pausedPhaseText,
+    );
+  }, 10000);
+
   it("shows a fullscreen notice when a session completes", async () => {
     const user = userEvent.setup();
 
@@ -699,7 +853,7 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(500_000);
+      await vi.advanceTimersByTimeAsync(584_000);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Session complete/i);
@@ -1010,7 +1164,7 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(41_000);
     });
 
     expect(
@@ -1046,7 +1200,7 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.advanceTimersByTimeAsync(18_000);
     });
 
     expect(screen.getByText(/Right now/i)).toBeInTheDocument();
@@ -1062,7 +1216,7 @@ describe("App", () => {
     });
 
     expect(screen.getByText(/Agitate for 10 sec/i)).toBeInTheDocument();
-    expect(screen.getByText(/7s left/i)).toBeInTheDocument();
+    expect(screen.getByText(/4s left/i)).toBeInTheDocument();
     expect(
       screen.queryByText(/Prepare to agitate in 26s/i),
     ).not.toBeInTheDocument();
@@ -1128,10 +1282,16 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(180_000);
+      await vi.advanceTimersByTimeAsync(190_200);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Drain monobath/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Pour wash water/i);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
@@ -1178,13 +1338,21 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(10_200);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Agitate continuously for 30 sec/i,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_500);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Stop agitation/i);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(29_000);
+      await vi.advanceTimersByTimeAsync(29_500);
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(/Agitate for 10 sec/i);
