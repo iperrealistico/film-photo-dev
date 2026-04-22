@@ -189,10 +189,10 @@ export const sessionNoticeCatalog = {
     ["cue_soft"],
     1200,
   ),
-  keep_agitating_halfway: createNoticeSpec(
-    "keep_agitating_halfway",
-    "Halfway there",
-    "Keep agitating. Halfway there.",
+  keep_agitation_moving: createNoticeSpec(
+    "keep_agitation_moving",
+    "Keep agitation moving",
+    "Keep agitation moving.",
     ["cue_soft"],
     1200,
   ),
@@ -447,6 +447,7 @@ const cueNoticeIdByLabel: Partial<Record<string, SessionNoticeId>> = {
   "Agitate for 10 sec": "agitate_10_sec",
   "Agitate for 15 sec": "agitate_15_sec",
   "Agitate gently for 5 sec": "agitate_gently_5_sec",
+  "Keep agitation moving": "keep_agitation_moving",
   "Prepare to agitate": "prepare_to_agitate",
 };
 
@@ -535,14 +536,6 @@ export function resolveTimedCueEndNotice(cue: CueEvent | null | undefined) {
   return cueNoticeIdByLabel[cue.label]
     ? getSessionNoticeById("stop_agitation")
     : null;
-}
-
-export function resolveTimedCueMidpointNotice(cue: CueEvent | null | undefined) {
-  if (!cue?.durationSec || cue.durationSec <= 10) {
-    return null;
-  }
-
-  return getSessionNoticeById("keep_agitating_halfway");
 }
 
 export function listSessionNoticeCacheUrls() {

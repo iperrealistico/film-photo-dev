@@ -1576,7 +1576,7 @@ describe("App", () => {
     expect(screen.getByText(/Agitate for 10 sec in 2s/i)).toBeInTheDocument();
   }, 10000);
 
-  it("shows a halfway keep-agitating notice during long timed agitation windows", async () => {
+  it("shows a fullscreen keep-agitation-moving notice during long continuous agitation phases", async () => {
     const user = userEvent.setup();
     const audioSpy = vi
       .spyOn(sessionAudio, "playToneSequence")
@@ -1593,14 +1593,6 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
-    await user.selectOptions(
-      screen.getByLabelText(/Monobath temperature/i),
-      "75",
-    );
-    await user.selectOptions(
-      screen.getByLabelText(/Agitation method/i),
-      "intermittent",
-    );
     await user.click(screen.getByRole("button", { name: /Review plan/i }));
 
     const baseNow = Date.now();
@@ -1612,22 +1604,24 @@ describe("App", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(24_000);
+      await vi.advanceTimersByTimeAsync(39_000);
     });
 
-    const audioCallCountBeforeHalfway = audioSpy.mock.calls.length;
-    const voiceCallCountBeforeHalfway = voiceSpy.mock.calls.length;
+    const audioCallCountBeforeReminder = audioSpy.mock.calls.length;
+    const voiceCallCountBeforeReminder = voiceSpy.mock.calls.length;
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(/Halfway there/i);
-    expect(audioSpy.mock.calls).toHaveLength(audioCallCountBeforeHalfway + 1);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Keep agitation moving/i,
+    );
+    expect(audioSpy.mock.calls).toHaveLength(audioCallCountBeforeReminder + 1);
     expect(audioSpy.mock.calls.at(-1)?.[0]).toEqual(["cue_soft"]);
-    expect(voiceSpy.mock.calls).toHaveLength(voiceCallCountBeforeHalfway + 1);
+    expect(voiceSpy.mock.calls).toHaveLength(voiceCallCountBeforeReminder + 1);
     expect(voiceSpy.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ id: "keep_agitating_halfway" }),
+      expect.objectContaining({ id: "keep_agitation_moving" }),
     );
   }, 10000);
 

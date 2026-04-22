@@ -10,7 +10,6 @@ import {
   resolvePhaseNotice,
   resolveSessionStartCountdownNotice,
   resolveStartSessionNotice,
-  resolveTimedCueMidpointNotice,
   resolveTimedCueEndNotice,
 } from "./sessionNotices";
 
@@ -82,21 +81,23 @@ describe("sessionNotices", () => {
       label: "Prepare to agitate",
       style: "soft",
     };
+    const continuousReminderCue: CueEvent = {
+      id: "continuous-reminder",
+      atSec: 30,
+      label: "Keep agitation moving",
+      style: "soft",
+    };
 
     expect(resolveSessionStartCountdownNotice(3).id).toBe("starting_in_3");
     expect(resolveSessionStartCountdownNotice(3).durationMs).toBe(1200);
     expect(resolveCueNotice(inversionCue)?.id).toBe("invert_3");
     expect(resolveCueNotice(timedCue)?.id).toBe("agitate_continuously_30_sec");
     expect(resolveCueNotice(fifteenSecondCue)?.id).toBe("agitate_15_sec");
+    expect(resolveCueNotice(continuousReminderCue)?.id).toBe(
+      "keep_agitation_moving",
+    );
     expect(resolveCueNotice(wrapperCue)).toBeNull();
     expect(resolveCueNotice(prepareCue)?.id).toBe("prepare_to_agitate");
-    expect(resolveTimedCueMidpointNotice(timedCue)?.id).toBe(
-      "keep_agitating_halfway",
-    );
-    expect(resolveTimedCueMidpointNotice(fifteenSecondCue)?.id).toBe(
-      "keep_agitating_halfway",
-    );
-    expect(resolveTimedCueMidpointNotice(wrapperCue)).toBeNull();
     expect(resolveTimedCueEndNotice(timedCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(wrapperCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(prepareCue)).toBeNull();
@@ -119,7 +120,7 @@ describe("sessionNotices", () => {
       "./audio/notices/prepare-to-agitate.mp3",
     );
     expect(listSessionNoticeCacheUrls()).toContain(
-      "./audio/notices/keep-agitating-halfway.mp3",
+      "./audio/notices/keep-agitation-moving.mp3",
     );
     expect(getAdditionalVoicePromptById("review_blocked").audioPath).toBe(
       "audio/notices/review-blocked.mp3",
