@@ -63,8 +63,19 @@ import {
 import { PlanReview } from "../ui/PlanReview";
 import { RecipeBrowser } from "../ui/RecipeBrowser";
 import { SessionConsole } from "../ui/SessionConsole";
+import { SessionNoticeOverlay } from "../ui/SessionNoticeOverlay";
 import { SetupForm } from "../ui/SetupForm";
 import * as sessionAudio from "./sessionAudio";
+import {
+  playSessionNoticeVoice,
+  resolveCompletedSessionNotice,
+  resolveCueNotice,
+  resolvePhaseNotice,
+  resolveStartSessionNotice,
+  resolveStoppedSessionNotice,
+  stopSessionNoticeVoice,
+  type SessionNoticeSpec,
+} from "./sessionNotices";
 import {
   clearActiveSessionSnapshot,
   loadActiveSessionSnapshot,
@@ -211,14 +222,19 @@ export function App() {
   const [debugStats, setDebugStats] = useState<DebugLogStats | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [toast, setToast] = useState("");
+  const [activeNotice, setActiveNotice] = useState<{
+    spec: SessionNoticeSpec;
+    sequence: number;
+  } | null>(null);
   const [screenTransitionDirection, setScreenTransitionDirection] =
     useState<ScreenTransitionDirection>("lateral");
   const [setupWarningIgnored, setSetupWarningIgnored] = useState(false);
   const lastCueRef = useRef("");
-  const lastActiveCuePulseRef = useRef("");
   const lastPhaseRef = useRef("");
   const lastSessionEventRef = useRef("");
   const lastSessionIdRef = useRef<string | null>(null);
+  const noticeTimeoutRef = useRef<number | null>(null);
+  const noticeSequenceRef = useRef(0);
   const screenRef = useRef<Screen>("recipes");
   const renderedScreenRef = useRef<Screen>("recipes");
   const debugUnlockRef = useRef({
@@ -330,6 +346,45 @@ export function App() {
     });
   }
 
+  function showSessionNotice(spec: SessionNoticeSpec) {
+    stopSessionNoticeVoice();
+
+    if (noticeTimeoutRef.current !== null) {
+      window.clearTimeout(noticeTimeoutRef.current);
+      noticeTimeoutRef.current = null;
+    }
+
+    const sequence = noticeSequenceRef.current + 1;
+    noticeSequenceRef.current = sequence;
+    setActiveNotice({ spec, sequence });
+
+    logDebugEvent({
+      category: "runtime",
+      event: "session_notice_shown",
+      detail: {
+        noticeId: spec.id,
+        headline: spec.headline,
+        speechEnabled: preferences.speechPromptsEnabled,
+        toneKinds: spec.toneKinds,
+      },
+      recipeId: selectedRecipeId,
+      sessionId: activeSession?.sessionId,
+    });
+
+    sessionAudio.playToneSequence(spec.toneKinds);
+
+    if (preferences.speechPromptsEnabled) {
+      void playSessionNoticeVoice(spec);
+    }
+
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      noticeTimeoutRef.current = null;
+      setActiveNotice((current) =>
+        current?.sequence === sequence ? null : current,
+      );
+    }, spec.durationMs);
+  }
+
   async function syncDebugState(reason: string) {
     try {
       const state = await getDebugLogState();
@@ -429,6 +484,21 @@ export function App() {
   }, [preferences]);
 
   useEffect(() => {
+    if (!preferences.speechPromptsEnabled) {
+      stopSessionNoticeVoice();
+    }
+  }, [preferences.speechPromptsEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimeoutRef.current !== null) {
+        window.clearTimeout(noticeTimeoutRef.current);
+      }
+      stopSessionNoticeVoice();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!preferences.debugUnlocked) {
       return undefined;
     }
@@ -523,16 +593,26 @@ export function App() {
 
   useEffect(() => {
     const sessionId = activeSession?.sessionId ?? null;
+    const previousSessionId = lastSessionIdRef.current;
 
-    if (lastSessionIdRef.current === sessionId) {
+    if (previousSessionId === sessionId) {
       return;
     }
 
     lastSessionIdRef.current = sessionId;
     lastCueRef.current = "";
-    lastActiveCuePulseRef.current = "";
     lastPhaseRef.current = "";
     lastSessionEventRef.current = "";
+
+    if (previousSessionId) {
+      setActiveNotice(null);
+      stopSessionNoticeVoice();
+
+      if (noticeTimeoutRef.current !== null) {
+        window.clearTimeout(noticeTimeoutRef.current);
+        noticeTimeoutRef.current = null;
+      }
+    }
   }, [activeSession?.sessionId]);
 
   useEffect(() => {
@@ -578,39 +658,15 @@ export function App() {
       sessionId: activeSession?.sessionId,
     });
 
-    if (!alertProfile.audioEnabled || !runtimeFrame?.currentPhase) {
+    if (lastSessionEvent.type === "completed") {
+      showSessionNotice(resolveCompletedSessionNotice());
       return;
     }
 
-    if (
-      (lastSessionEvent.type === "started" ||
-        lastSessionEvent.type === "phase_wait_confirmed") &&
-      runtimeFrame.currentPhase.timerMode !== "manual" &&
-      !sessionAudio.phaseHasImmediateCue(runtimeFrame.currentPhase)
-    ) {
-      const toneKinds = [
-        sessionAudio.resolvePhaseStartToneKind(runtimeFrame.currentPhase),
-      ] as const;
-
-      sessionAudio.playToneSequence(toneKinds);
-      logDebugEvent({
-        category: "runtime",
-        event: "audio_emitted",
-        detail: {
-          source: `session_event_${lastSessionEvent.type}`,
-          toneKinds,
-          phaseLabel: runtimeFrame.currentPhase.label,
-        },
-        recipeId: selectedRecipeId,
-        sessionId: activeSession?.sessionId,
-      });
+    if (lastSessionEvent.type === "aborted") {
+      showSessionNotice(resolveStoppedSessionNotice());
     }
-  }, [
-    activeSession,
-    alertProfile.audioEnabled,
-    runtimeFrame,
-    selectedRecipeId,
-  ]);
+  }, [activeSession, selectedRecipeId]);
 
   useEffect(() => {
     if (!runtimeFrame || !activeSession) {
@@ -638,16 +694,8 @@ export function App() {
       return;
     }
 
+    const currentPhaseNotice = resolvePhaseNotice(runtimeFrame.currentPhase);
     const nextPhaseLabel = runtimeFrame.currentPhase?.label ?? "Next step";
-    const previousPhaseIndex = Number.parseInt(
-      previousSignature.split(":").at(-1) ?? "",
-      10,
-    );
-    const previousPhase =
-      Number.isFinite(previousPhaseIndex) &&
-      previousSignature.startsWith(`${activeSession.sessionId}:`)
-        ? (livePlan.phaseList[previousPhaseIndex] ?? null)
-        : null;
     const shouldGateNextPhase =
       runtimeFrame.currentPhase?.timerMode === "manual" ||
       preferences.phaseConfirmationEnabled;
@@ -663,30 +711,8 @@ export function App() {
       sessionId: activeSession.sessionId,
     });
 
-    if (alertProfile.audioEnabled) {
-      const toneKinds = sessionAudio.buildPhaseTransitionToneKinds(
-        previousPhase,
-        runtimeFrame.currentPhase,
-        {
-          includeStartTone: !shouldGateNextPhase,
-        },
-      );
-
-      if (toneKinds.length > 0) {
-        sessionAudio.playToneSequence(toneKinds);
-        logDebugEvent({
-          category: "runtime",
-          event: "audio_emitted",
-          detail: {
-            source: "phase_changed",
-            toneKinds,
-            previousPhaseLabel: previousPhase?.label,
-            nextPhaseLabel: runtimeFrame.currentPhase?.label,
-          },
-          recipeId: selectedRecipeId,
-          sessionId: activeSession.sessionId,
-        });
-      }
+    if (currentPhaseNotice) {
+      showSessionNotice(currentPhaseNotice);
     }
 
     if (shouldGateNextPhase) {
@@ -702,20 +728,7 @@ export function App() {
       );
       return;
     }
-
-    if (alertProfile.visualEnabled) {
-      document.body.dataset.flash = "phase";
-      window.setTimeout(() => {
-        delete document.body.dataset.flash;
-      }, 320);
-    }
-  }, [
-    alertProfile.visualEnabled,
-    activeSession,
-    preferences.phaseConfirmationEnabled,
-    runtimeFrame,
-    selectedRecipeId,
-  ]);
+  }, [activeSession, preferences.phaseConfirmationEnabled, runtimeFrame, selectedRecipeId]);
 
   useEffect(() => {
     if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
@@ -726,11 +739,9 @@ export function App() {
       runtimeFrame.currentPhase?.cueEvents.find(
         (cue) => cue.atSec === runtimeFrame.elapsedInPhaseSec,
       ) ?? null;
-    const cueSignalId = exactCue
-      ? `cue:${exactCue.id}`
-      : `phase:${runtimeFrame.phaseIndex}`;
+    const cueSignalId = exactCue ? `cue:${exactCue.id}` : "";
 
-    if (cueSignalId === lastCueRef.current) {
+    if (!exactCue || cueSignalId === lastCueRef.current) {
       return;
     }
 
@@ -738,87 +749,27 @@ export function App() {
       navigator.vibrate?.(exactCue.style === "strong" ? [120, 40, 120] : 90);
     }
 
-    if (exactCue && alertProfile.audioEnabled) {
-      const toneKinds = [sessionAudio.resolveCueToneKind(exactCue)] as const;
+    logDebugEvent({
+      category: "runtime",
+      event: "cue_emitted",
+      detail: {
+        cueId: exactCue.id,
+        cueLabel: exactCue.label,
+        phaseLabel: runtimeFrame.currentPhase?.label,
+        elapsedInPhaseSec: runtimeFrame.elapsedInPhaseSec,
+      },
+      recipeId: selectedRecipeId,
+      sessionId: activeSession.sessionId,
+    });
 
-      sessionAudio.playToneSequence(toneKinds);
-      logDebugEvent({
-        category: "runtime",
-        event: "audio_emitted",
-        detail: {
-          source: "cue_emitted",
-          toneKinds,
-          cueId: exactCue.id,
-          cueLabel: exactCue.label,
-        },
-        recipeId: selectedRecipeId,
-        sessionId: activeSession.sessionId,
-      });
-    }
+    const cueNotice = resolveCueNotice(exactCue);
 
-    if (exactCue) {
-      logDebugEvent({
-        category: "runtime",
-        event: "cue_emitted",
-        detail: {
-          cueId: exactCue.id,
-          cueLabel: exactCue.label,
-          phaseLabel: runtimeFrame.currentPhase?.label,
-          elapsedInPhaseSec: runtimeFrame.elapsedInPhaseSec,
-        },
-        recipeId: selectedRecipeId,
-        sessionId: activeSession.sessionId,
-      });
+    if (cueNotice) {
+      showSessionNotice(cueNotice);
     }
 
     lastCueRef.current = cueSignalId;
   }, [alertProfile, activeSession, runtimeFrame, selectedRecipeId]);
-
-  useEffect(() => {
-    if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
-      return;
-    }
-
-    const activeCue = runtimeFrame.activeCue;
-
-    if (!activeCue || runtimeFrame.elapsedInPhaseSec <= activeCue.atSec) {
-      return;
-    }
-
-    const pulseSignalId = `${activeSession.sessionId}:${activeCue.id}:${runtimeFrame.elapsedInPhaseSec}`;
-
-    if (pulseSignalId === lastActiveCuePulseRef.current) {
-      return;
-    }
-
-    if (alertProfile.audioEnabled) {
-      const toneKinds = [
-        sessionAudio.resolveActiveCuePulseToneKind(activeCue),
-      ] as const;
-
-      sessionAudio.playToneSequence(toneKinds);
-      logDebugEvent({
-        category: "runtime",
-        event: "audio_emitted",
-        detail: {
-          source: "active_cue_pulse",
-          toneKinds,
-          cueId: activeCue.id,
-          cueLabel: activeCue.label,
-          elapsedInPhaseSec: runtimeFrame.elapsedInPhaseSec,
-        },
-        recipeId: selectedRecipeId,
-        sessionId: activeSession.sessionId,
-      });
-    }
-
-    lastActiveCuePulseRef.current = pulseSignalId;
-  }, [
-    activeSession,
-    alertProfile.audioEnabled,
-    runtimeFrame,
-    selectedRecipeId,
-  ]);
 
   const diagnostics: DiagnosticBundle = {
     appVersion,
@@ -832,6 +783,7 @@ export function App() {
       `mix-mode:${mixWorkspace.activeMode}`,
       `theme:${preferences.themeMode}`,
       `left-handed:${preferences.leftHanded}`,
+      `speech-prompts:${preferences.speechPromptsEnabled}`,
       `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
       `debug-unlocked:${preferences.debugUnlocked}`,
@@ -965,6 +917,7 @@ export function App() {
     setActivePlan(draftPlan);
     setActiveSession(session);
     transitionToScreen("session", "forward");
+    showSessionNotice(resolveStartSessionNotice());
   }
 
   async function handleCopyDiagnostics() {
@@ -1141,6 +1094,16 @@ export function App() {
     setPreferences((current) => ({
       ...current,
       buttonSoundsEnabled: !current.buttonSoundsEnabled,
+    }));
+  }
+
+  function handleToggleSpeechPrompts() {
+    logUiEvent("speech_prompts_toggled", {
+      nextValue: !preferences.speechPromptsEnabled,
+    });
+    setPreferences((current) => ({
+      ...current,
+      speechPromptsEnabled: !current.speechPromptsEnabled,
     }));
   }
 
@@ -1380,6 +1343,7 @@ export function App() {
                 frame={runtimeFrame}
                 onStart={() => {
                   logUiEvent("session_started_from_console");
+                  showSessionNotice(resolveStartSessionNotice());
                   setActiveSession((current) =>
                     current ? beginSessionState(current, Date.now()) : current,
                   );
@@ -1460,6 +1424,7 @@ export function App() {
                 onToggleHandedness={handleToggleHandedness}
                 onToggleAnimations={handleToggleAnimations}
                 onToggleButtonSounds={handleToggleButtonSounds}
+                onToggleSpeechPrompts={handleToggleSpeechPrompts}
                 onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
                 onExportPresets={handleExportPresets}
@@ -1534,7 +1499,12 @@ export function App() {
 
         {screen !== "session" ? (
           <nav className="bottom-nav">
-            <div className="bottom-nav__inner">
+            <div
+              className="bottom-nav__inner"
+              style={{
+                gridTemplateColumns: `repeat(${navigationItems.length}, minmax(0, 1fr))`,
+              }}
+            >
               {navigationItems.map((item) => {
                 const NavIcon = item.icon;
 
@@ -1558,6 +1528,14 @@ export function App() {
 
         {toast ? <div className="toast">{toast}</div> : null}
       </main>
+      {activeNotice ? (
+        <SessionNoticeOverlay
+          key={activeNotice.sequence}
+          notice={activeNotice.spec}
+          sequence={activeNotice.sequence}
+          animationsEnabled={preferences.animationsEnabled}
+        />
+      ) : null}
     </div>
   );
 }

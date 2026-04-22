@@ -41,6 +41,7 @@ describe('preferences', () => {
       themeMode: 'standard',
       animationsEnabled: true,
       buttonSoundsEnabled: true,
+      speechPromptsEnabled: false,
       phaseConfirmationEnabled: false
     });
   });
@@ -59,6 +60,7 @@ describe('preferences', () => {
       leftHanded: true,
       animationsEnabled: true,
       buttonSoundsEnabled: true,
+      speechPromptsEnabled: false,
       phaseConfirmationEnabled: false
     });
   });

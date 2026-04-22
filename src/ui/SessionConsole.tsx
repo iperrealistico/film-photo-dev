@@ -105,7 +105,7 @@ export function SessionConsole({
           <div className="action-row">
             <button
               type="button"
-              className="secondary-button"
+              className="secondary-button cta-button"
               onClick={onAbort}
             >
               <span className="button-label">
@@ -115,7 +115,7 @@ export function SessionConsole({
             </button>
             <button
               type="button"
-              className="primary-button"
+              className="primary-button cta-button"
               onClick={onConfirmRecovery}
             >
               <span className="button-label">
@@ -201,7 +201,7 @@ export function SessionConsole({
           <div className="action-row">
             <button
               type="button"
-              className="primary-button runtime-button runtime-button--gate"
+              className="primary-button runtime-button runtime-button--gate cta-button"
               onClick={onConfirmPhaseStart}
             >
               <span className="button-label">
@@ -213,7 +213,7 @@ export function SessionConsole({
             </button>
             <button
               type="button"
-              className="secondary-button runtime-button"
+              className="secondary-button runtime-button cta-button"
               onClick={onAbort}
             >
               <span className="button-label">
@@ -231,7 +231,7 @@ export function SessionConsole({
             {state.status === "ready" ? (
               <button
                 type="button"
-                className="primary-button runtime-button"
+                className="primary-button runtime-button cta-button"
                 onClick={onStart}
               >
                 <span className="button-label">
@@ -242,7 +242,7 @@ export function SessionConsole({
             ) : state.status === "paused" ? (
               <button
                 type="button"
-                className="primary-button runtime-button"
+                className="primary-button runtime-button cta-button"
                 onClick={onResume}
               >
                 <span className="button-label">
@@ -253,7 +253,7 @@ export function SessionConsole({
             ) : (
               <button
                 type="button"
-                className="primary-button runtime-button"
+                className="primary-button runtime-button cta-button"
                 onClick={onPause}
               >
                 <span className="button-label">
@@ -264,7 +264,7 @@ export function SessionConsole({
             )}
             <button
               type="button"
-              className="secondary-button runtime-button"
+              className="secondary-button runtime-button cta-button"
               onClick={onAbort}
             >
               <span className="button-label">
@@ -276,7 +276,11 @@ export function SessionConsole({
         ) : null
       ) : (
         <div className="action-row">
-          <button type="button" className="secondary-button" onClick={onReset}>
+          <button
+            type="button"
+            className="secondary-button cta-button"
+            onClick={onReset}
+          >
             <span className="button-label">
               <RefreshIcon aria-hidden="true" />
               <span>New session</span>

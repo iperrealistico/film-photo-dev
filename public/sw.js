@@ -1,4 +1,4 @@
-const CACHE_NAME = 'film-dev-shell-v3';
+const CACHE_NAME = 'film-dev-shell-v4';
 const OFFLINE_URLS = [
   './',
   './manifest.webmanifest',
@@ -7,7 +7,43 @@ const OFFLINE_URLS = [
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
   './icons/favicon-16.png',
-  './icons/favicon.ico'
+  './icons/favicon.ico',
+  './audio/notices/start-session.mp3',
+  './audio/notices/session-complete.mp3',
+  './audio/notices/session-stopped.mp3',
+  './audio/notices/invert-1.mp3',
+  './audio/notices/invert-2.mp3',
+  './audio/notices/invert-3.mp3',
+  './audio/notices/invert-4.mp3',
+  './audio/notices/invert-5.mp3',
+  './audio/notices/invert-6.mp3',
+  './audio/notices/invert-7.mp3',
+  './audio/notices/invert-8.mp3',
+  './audio/notices/invert-9.mp3',
+  './audio/notices/invert-10.mp3',
+  './audio/notices/pre-soak.mp3',
+  './audio/notices/developer.mp3',
+  './audio/notices/transition-to-blix.mp3',
+  './audio/notices/blix.mp3',
+  './audio/notices/transition-to-wash.mp3',
+  './audio/notices/wash.mp3',
+  './audio/notices/final-rinse.mp3',
+  './audio/notices/drain-developer.mp3',
+  './audio/notices/fill-stop-bath.mp3',
+  './audio/notices/stop-bath.mp3',
+  './audio/notices/drain-stop.mp3',
+  './audio/notices/fill-fixer.mp3',
+  './audio/notices/fixer.mp3',
+  './audio/notices/drain-fixer.mp3',
+  './audio/notices/fill-hypo-clear.mp3',
+  './audio/notices/hypo-clear.mp3',
+  './audio/notices/fill-wash.mp3',
+  './audio/notices/wetting-agent.mp3',
+  './audio/notices/monobath.mp3',
+  './audio/notices/drain-monobath.mp3',
+  './audio/notices/minimal-wash-5.mp3',
+  './audio/notices/minimal-wash-10.mp3',
+  './audio/notices/minimal-wash-20.mp3'
 ];
 
 self.addEventListener('install', (event) => {

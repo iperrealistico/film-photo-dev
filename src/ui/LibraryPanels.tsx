@@ -82,6 +82,7 @@ interface SettingsPanelProps {
   onToggleHandedness: () => void;
   onToggleAnimations: () => void;
   onToggleButtonSounds: () => void;
+  onToggleSpeechPrompts: () => void;
   onTogglePhaseConfirmation: () => void;
   onToggleDiagnostics: () => void;
   onExportPresets: () => void;
@@ -103,6 +104,7 @@ export function SettingsPanel({
   onToggleHandedness,
   onToggleAnimations,
   onToggleButtonSounds,
+  onToggleSpeechPrompts,
   onTogglePhaseConfirmation,
   onToggleDiagnostics,
   onExportPresets,
@@ -237,7 +239,8 @@ export function SettingsPanel({
           </h3>
           <p>
             Choose how much motion, feedback, and step-by-step control the app
-            uses in the darkroom.
+            uses in the darkroom. Voice prompts use short bundled AI-generated
+            English clips and still work offline.
           </p>
         </div>
         <button
@@ -261,6 +264,17 @@ export function SettingsPanel({
             <span>Button sounds</span>
           </span>
           <strong>{preferences.buttonSoundsEnabled ? "On" : "Off"}</strong>
+        </button>
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={onToggleSpeechPrompts}
+        >
+          <span className="button-label">
+            <SpeakerIcon aria-hidden="true" />
+            <span>Voice prompts</span>
+          </span>
+          <strong>{preferences.speechPromptsEnabled ? "On" : "Off"}</strong>
         </button>
         <button
           type="button"

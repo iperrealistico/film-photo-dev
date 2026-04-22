@@ -359,7 +359,7 @@ export function PlanReview({
         </button>
         <button
           type="button"
-          className="primary-button"
+          className="primary-button cta-button"
           onClick={onStartSession}
           disabled={plan.blockingIssues.length > 0}
         >

@@ -16,6 +16,7 @@ import { createDefaultInputState, createSessionPlan } from "../domain/planner";
 import { createActiveSession, startSession } from "../domain/runtime";
 import { saveActiveSessionSnapshot } from "../storage/preferences";
 import * as sessionAudio from "./sessionAudio";
+import * as sessionNotices from "./sessionNotices";
 
 function createMemoryStorage() {
   const data = new Map<string, string>();
@@ -103,6 +104,19 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: /Review plan/i }),
     ).toBeInTheDocument();
+  });
+
+  it("sizes the bottom navigation grid to the rendered tab count", () => {
+    const { container } = render(<App />);
+    const bottomNavInner = container.querySelector(".bottom-nav__inner");
+
+    expect(bottomNavInner).not.toBeNull();
+    expect(bottomNavInner).toHaveStyle({
+      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    });
+    expect(within(bottomNavInner as HTMLElement).getAllByRole("button")).toHaveLength(
+      4,
+    );
   });
 
   it("asks for previously processed Cs41 units and exposes the optional blix extension toggle", async () => {
@@ -219,6 +233,7 @@ describe("App", () => {
       screen.getByRole("button", { name: /Screen animations/i }),
     );
     await user.click(screen.getByRole("button", { name: /Button sounds/i }));
+    await user.click(screen.getByRole("button", { name: /Voice prompts/i }));
     await user.click(
       screen.getByRole("button", { name: /Pause between steps/i }),
     );
@@ -229,6 +244,9 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: /Button sounds/i }),
     ).toHaveTextContent("Off");
+    expect(
+      screen.getByRole("button", { name: /Voice prompts/i }),
+    ).toHaveTextContent("On");
     expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
@@ -244,9 +262,188 @@ describe("App", () => {
       screen.getByRole("button", { name: /Button sounds/i }),
     ).toHaveTextContent("Off");
     expect(
+      screen.getByRole("button", { name: /Voice prompts/i }),
+    ).toHaveTextContent("On");
+    expect(
       screen.getByRole("button", { name: /Pause between steps/i }),
     ).toHaveTextContent("On");
   });
+
+  it("plays bundled voice prompts only when the voice setting is enabled", async () => {
+    const user = userEvent.setup();
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+    const { unmount } = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(voiceSpy).not.toHaveBeenCalled();
+
+    unmount();
+    resetClientStorage();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+    await user.click(screen.getByRole("button", { name: /Voice prompts/i }));
+    await user.click(screen.getByRole("button", { name: /^Recipes$/i }));
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(voiceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "start_session" }),
+    );
+  }, 10000);
+
+  it("shows a fullscreen start notice and auto-dismisses it", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Start session/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_900);
+    });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  }, 10000);
+
+  it("applies the large CTA treatment to the major session controls", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    expect(screen.getByRole("button", { name: /Start session/i })).toHaveClass(
+      "cta-button",
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(screen.getByRole("button", { name: /Pause timer/i })).toHaveClass(
+      "cta-button",
+    );
+    expect(screen.getByRole("button", { name: /End session/i })).toHaveClass(
+      "cta-button",
+    );
+  });
+
+  it("shows fullscreen notices for inversion cues", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Cs41 powder kit/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(90_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Invert 1/i);
+  }, 10000);
+
+  it("shows fullscreen notices for phase changes", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Drain monobath/i);
+  }, 10000);
+
+  it("shows a fullscreen notice when the user stops a session", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /End session/i }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Session stopped/i);
+  }, 10000);
+
+  it("shows a fullscreen notice when a session completes", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Session complete/i);
+  }, 10000);
 
   it("waits for manual confirmation before starting the next phase when pause-between-steps is enabled", async () => {
     const user = userEvent.setup();
@@ -528,6 +725,9 @@ describe("App", () => {
       screen.getByRole("button", { name: /Complete this step/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/manual on purpose/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Minimal wash 5 inversions/i,
+    );
   }, 10000);
 
   it("keeps DF96 constant-agitation cues active past the first 30 seconds", async () => {
@@ -605,7 +805,7 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   }, 10000);
 
-  it("emits per-second cue pulses while a DF96 intermittent agitation window is active", async () => {
+  it("does not emit per-second cue-pulse beeps during a DF96 agitation window", async () => {
     const user = userEvent.setup();
     const audioSpy = vi
       .spyOn(sessionAudio, "playToneSequence")
@@ -642,10 +842,10 @@ describe("App", () => {
       ([toneKinds]) => Array.isArray(toneKinds) && toneKinds[0] === "cue_soft",
     );
 
-    expect(repeatedCueSoftCalls.length).toBeGreaterThanOrEqual(4);
+    expect(repeatedCueSoftCalls).toHaveLength(0);
   }, 10000);
 
-  it("plays explicit phase-transition sounds when DF96 moves into drain and wash", async () => {
+  it("plays notice beeps and shows fullscreen notices when DF96 moves into drain and wash", async () => {
     const user = userEvent.setup();
     const audioSpy = vi
       .spyOn(sessionAudio, "playToneSequence")
@@ -668,24 +868,24 @@ describe("App", () => {
       await vi.advanceTimersByTimeAsync(180_000);
     });
 
+    expect(screen.getByRole("status")).toHaveTextContent(/Drain monobath/i);
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
 
+    expect(screen.getByRole("status")).toHaveTextContent(/^.*Wash.*$/i);
+
     expect(
       audioSpy.mock.calls.some(
         ([toneKinds]) =>
-          Array.isArray(toneKinds) &&
-          toneKinds[0] === "phase_end" &&
-          toneKinds[1] === "drain",
+          Array.isArray(toneKinds) && toneKinds[0] === "drain",
       ),
     ).toBe(true);
     expect(
       audioSpy.mock.calls.some(
         ([toneKinds]) =>
-          Array.isArray(toneKinds) &&
-          toneKinds[0] === "phase_end" &&
-          toneKinds[1] === "phase_start",
+          Array.isArray(toneKinds) && toneKinds[0] === "phase_start",
       ),
     ).toBe(true);
   }, 10000);

@@ -15,6 +15,7 @@ export interface PreferenceState {
   leftHanded: boolean;
   animationsEnabled: boolean;
   buttonSoundsEnabled: boolean;
+  speechPromptsEnabled: boolean;
   phaseConfirmationEnabled: boolean;
   diagnosticsOpen: boolean;
   debugUnlocked: boolean;
@@ -27,6 +28,7 @@ interface LegacyPreferenceState {
   leftHanded?: boolean;
   animationsEnabled?: boolean;
   buttonSoundsEnabled?: boolean;
+  speechPromptsEnabled?: boolean;
   phaseConfirmationEnabled?: boolean;
   diagnosticsOpen?: boolean;
   debugUnlocked?: boolean;
@@ -38,6 +40,7 @@ const defaultPreferences: PreferenceState = {
   leftHanded: false,
   animationsEnabled: true,
   buttonSoundsEnabled: true,
+  speechPromptsEnabled: false,
   phaseConfirmationEnabled: false,
   diagnosticsOpen: false,
   debugUnlocked: false
@@ -86,6 +89,7 @@ export function loadPreferences() {
         leftHanded: preferences.leftHanded,
         animationsEnabled: preferences.animationsEnabled,
         buttonSoundsEnabled: preferences.buttonSoundsEnabled,
+        speechPromptsEnabled: preferences.speechPromptsEnabled,
         phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
         diagnosticsOpen: preferences.diagnosticsOpen,
         debugUnlocked: preferences.debugUnlocked
@@ -117,6 +121,7 @@ export function savePreferences(preferences: PreferenceState) {
       leftHanded: preferences.leftHanded,
       animationsEnabled: preferences.animationsEnabled,
       buttonSoundsEnabled: preferences.buttonSoundsEnabled,
+      speechPromptsEnabled: preferences.speechPromptsEnabled,
       phaseConfirmationEnabled: preferences.phaseConfirmationEnabled,
       diagnosticsOpen: preferences.diagnosticsOpen,
       debugUnlocked: preferences.debugUnlocked
