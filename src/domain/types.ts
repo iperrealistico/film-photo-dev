@@ -150,6 +150,8 @@ export interface CueEvent {
   durationSec?: number;
   label: string;
   style: "soft" | "strong";
+  noticeId?: string | null;
+  endNoticeId?: string | null;
 }
 
 export interface PhaseDefinition {

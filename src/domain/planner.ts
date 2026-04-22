@@ -187,15 +187,38 @@ function buildAgitationCueSeries(
   leadSec: number,
   inversions: number,
   inversionIntervalSec = 2,
+  options?: {
+    includeInitialSet?: boolean;
+    firstSetAtSec?: number;
+    addSetStopNotice?: boolean;
+  },
 ) {
   const cues: CueEvent[] = [];
+  const normalizedInversions = Math.max(1, Math.round(inversions));
+  const normalizedInversionIntervalSec = Math.max(
+    1,
+    Math.round(inversionIntervalSec),
+  );
+  const firstSetAtSec = Math.max(
+    0,
+    Math.round(options?.firstSetAtSec ?? repeatIntervalSec),
+  );
+  const windowStarts = new Set<number>();
+
+  if (options?.includeInitialSet) {
+    windowStarts.add(0);
+  }
 
   for (
-    let windowStart = repeatIntervalSec;
+    let windowStart = firstSetAtSec;
     windowStart < durationSec;
     windowStart += repeatIntervalSec
   ) {
-    if (windowStart - leadSec > 0) {
+    windowStarts.add(windowStart);
+  }
+
+  for (const windowStart of [...windowStarts].sort((left, right) => left - right)) {
+    if (windowStart > 0 && windowStart - leadSec > 0) {
       cues.push({
         id: `${phaseId}-prepare-${windowStart}`,
         atSec: windowStart - leadSec,
@@ -206,17 +229,40 @@ function buildAgitationCueSeries(
 
     for (
       let inversionIndex = 0;
-      inversionIndex < inversions;
+      inversionIndex < normalizedInversions;
       inversionIndex += 1
     ) {
       cues.push({
         id: `${phaseId}-agitate-${windowStart}-${inversionIndex}`,
         atSec: Math.min(
           durationSec - 1,
-          windowStart + inversionIndex * Math.max(1, inversionIntervalSec),
+          Math.round(
+            windowStart + inversionIndex * normalizedInversionIntervalSec,
+          ),
         ),
         label: `Invert ${inversionIndex + 1}`,
         style: inversionIndex === 0 ? "strong" : "soft",
+      });
+    }
+
+    if (options?.addSetStopNotice) {
+      const setDurationSec = Math.min(
+        Math.max(
+          1,
+          normalizedInversionIntervalSec * Math.max(0, normalizedInversions - 1) +
+            1,
+        ),
+        Math.max(1, durationSec - windowStart),
+      );
+
+      cues.push({
+        id: `${phaseId}-agitation-set-${windowStart}`,
+        atSec: Math.min(durationSec - 1, windowStart),
+        durationSec: setDurationSec,
+        label: "Agitation set in progress",
+        style: "soft",
+        noticeId: null,
+        endNoticeId: "stop_agitation",
       });
     }
   }
@@ -506,9 +552,11 @@ function planCs41(
   const finalRinseSec = 45;
   const developerGuidance = buildCs41DeveloperGuidance(temperatureF);
   const blixDetail =
-    chemistryState === "reused" && extendBlixWithReuse
-      ? `Optional blix extension is active. Base blix time × ${reuseMultiplier.toFixed(2)} to match the developer reuse increase.`
-      : "Fixed blix time. Reuse does not change the timer.";
+    agitationMode === "continuous"
+      ? "Continuous agitation for the full blix time."
+      : chemistryState === "reused" && extendBlixWithReuse
+        ? `Initial 10 seconds of agitation, then interval inversions every 30 seconds. Optional blix extension is active. Base blix time × ${reuseMultiplier.toFixed(2)} to match the developer reuse increase.`
+        : "Initial 10 seconds of agitation, then interval inversions every 30 seconds. Reuse does not change the timer.";
 
   const developerCues =
     agitationMode === "continuous"
@@ -526,6 +574,7 @@ function planCs41(
               durationSec: developerGuidance.initialContinuousSec,
               label: `Agitate continuously for ${developerGuidance.initialContinuousSec} sec`,
               style: "strong" as const,
+              endNoticeId: "stop_agitation",
             },
             {
               id: "developer-initial-window-end",
@@ -545,19 +594,43 @@ function planCs41(
             warningLeadSec,
             inversions,
             inversionIntervalSec,
+            {
+              addSetStopNotice: true,
+            },
           ),
         );
 
   const blixCues =
     agitationMode === "continuous"
-      ? []
-      : buildAgitationCueSeries(
+      ? buildContinuousCueSeries(
           "blix",
           blixSec,
-          30,
-          warningLeadSec,
-          inversions,
-          inversionIntervalSec,
+          "Start continuous agitation",
+          "Keep agitation moving",
+        )
+      : (
+          [
+            {
+              id: "blix-initial-window",
+              atSec: 0,
+              durationSec: 10,
+              label: "Agitate continuously for 10 sec",
+              style: "strong" as const,
+              endNoticeId: "stop_agitation",
+            },
+          ] as CueEvent[]
+        ).concat(
+          buildAgitationCueSeries(
+            "blix",
+            blixSec,
+            30,
+            warningLeadSec,
+            inversions,
+            inversionIntervalSec,
+            {
+              addSetStopNotice: true,
+            },
+          ),
         );
 
   const phaseList = [
@@ -638,6 +711,16 @@ function planCs41(
       "wetting",
       finalRinseSec,
       "Optional final rinse / stabilizer window.",
+      [
+        {
+          id: "final-rinse-initial-window",
+          atSec: 0,
+          durationSec: 15,
+          label: "Agitate for 15 sec",
+          style: "strong",
+          endNoticeId: "stop_agitation",
+        },
+      ],
     ),
   ];
 
@@ -849,14 +932,70 @@ function planHc110(
           30,
           warningLeadSec,
           inversions,
+          1,
+          {
+            includeInitialSet: true,
+            addSetStopNotice: true,
+          },
         );
 
-  const fixCues = buildAgitationCueSeries(
-    "fix",
-    fixerSec,
-    30,
-    warningLeadSec,
-    inversions,
+  const stopCues = buildContinuousCueSeries(
+    "stop",
+    stopBathSec,
+    "Start continuous agitation",
+    "Keep agitation moving",
+  );
+
+  const fixCues = (
+    [
+      {
+        id: "fix-initial-window",
+        atSec: 0,
+        durationSec: 30,
+        label: "Agitate continuously for 30 sec",
+        style: "strong" as const,
+        endNoticeId: "stop_agitation",
+      },
+    ] as CueEvent[]
+  ).concat(
+    buildAgitationCueSeries(
+      "fix",
+      fixerSec,
+      30,
+      warningLeadSec,
+      inversions,
+      1,
+      {
+        firstSetAtSec: 60,
+        addSetStopNotice: true,
+      },
+    ),
+  );
+
+  const hypoCues = (
+    [
+      {
+        id: "hypo-initial-window",
+        atSec: 0,
+        durationSec: 30,
+        label: "Agitate continuously for 30 sec",
+        style: "strong" as const,
+        endNoticeId: "stop_agitation",
+      },
+    ] as CueEvent[]
+  ).concat(
+    buildAgitationCueSeries(
+      "hypo",
+      hypoSec,
+      30,
+      warningLeadSec,
+      inversions,
+      1,
+      {
+        firstSetAtSec: 60,
+        addSetStopNotice: true,
+      },
+    ),
   );
 
   const phaseList: PhaseDefinition[] = [
@@ -867,7 +1006,7 @@ function planHc110(
       developerSec,
       agitationMode === "continuous"
         ? "Continuous agitation selected. This build does not auto-shorten the time for rotary use."
-        : "Small-tank reminder cadence: agitation cues every 30 seconds.",
+        : `Initial ${Math.max(1, Math.round(inversions))} inversion cycles, then interval cues every 30 seconds.`,
       developerCues,
     ),
     buildPhase(
@@ -889,15 +1028,15 @@ function planHc110(
       "Stop bath",
       "stop",
       stopBathSec,
-      "Short stop before fixer.",
-      [
+      "Continuous agitation through the stop bath before fixer.",
+      stopCues.concat([
         {
           id: "stop-ready",
           atSec: Math.max(1, stopBathSec - warningLeadSec),
           label: "Next: fixer",
           style: "soft",
         },
-      ],
+      ]),
     ),
     buildPhase(
       "drain-stop",
@@ -918,7 +1057,7 @@ function planHc110(
       "Fixer",
       "fix",
       fixerSec,
-      "Fixer phase with 30-second agitation reminders.",
+      `Continuous first 30 seconds, then ${Math.max(1, Math.round(inversions))} inversion cycles every 30 seconds.`,
       fixCues,
     ),
   ];
@@ -944,15 +1083,15 @@ function planHc110(
         "Hypo clear",
         "rinse",
         hypoSec,
-        "Optional hypo clear step.",
-        [
+        `Optional hypo clear step with a 30-second opening agitation, then ${Math.max(1, Math.round(inversions))} inversion cycles every 30 seconds.`,
+        hypoCues.concat([
           {
             id: "hypo-next",
             atSec: Math.max(1, hypoSec - warningLeadSec),
             label: "Next: wash",
             style: "soft",
           },
-        ],
+        ]),
       ),
     );
   }
@@ -1207,6 +1346,7 @@ function buildDf96AgitationCues(
           ? "Agitate continuously for 30 sec"
           : "Agitate gently for 10 sec",
       style: "strong",
+      endNoticeId: "stop_agitation",
     },
   ];
 
@@ -1229,6 +1369,7 @@ function buildDf96AgitationCues(
           ? "Agitate for 10 sec"
           : "Agitate gently for 5 sec",
       style: "strong",
+      endNoticeId: "stop_agitation",
     });
   }
 

@@ -504,6 +504,37 @@ describe("App", () => {
     );
   }, 10000);
 
+  it("shows the first HC-110 intermittent inversion notice and then the stop notice for the opening set", async () => {
+    const user = userEvent.setup();
+
+    resetClientStorage();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /HC-110/i }));
+    await user.selectOptions(screen.getByLabelText(/^Agitation$/i), "intermittent");
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_200);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Invert 1/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Stop agitation/i);
+  }, 10000);
+
   it("shows the first Cs41 developer agitation notice after the pre-soak handoff", async () => {
     const user = userEvent.setup();
 

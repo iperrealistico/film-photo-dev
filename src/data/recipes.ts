@@ -482,7 +482,7 @@ export const recipes: RecipeDefinition[] = [
         min: 2,
         max: 6,
         step: 1,
-        defaultValue: 4
+        defaultValue: 5
       }
     ]
   },

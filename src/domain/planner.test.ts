@@ -219,6 +219,56 @@ describe("session planning", () => {
     expect(developerPhase?.cueEvents.length).toBeGreaterThan(2);
   });
 
+  it("matches the HC-110 intermittent guidance with an opening inversion set plus stop, fixer, and hypo-clear cues", () => {
+    const recipe = recipes.find((entry) => entry.id === "kodak-hc110");
+
+    if (!recipe) {
+      throw new Error("Missing HC-110 recipe.");
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        agitationMode: "intermittent",
+        hypoEnabled: true,
+      },
+      defaultAlertProfiles[0],
+    );
+
+    const developerPhase = plan.phaseList.find((phase) => phase.label === "Developer");
+    const stopPhase = plan.phaseList.find((phase) => phase.label === "Stop bath");
+    const fixPhase = plan.phaseList.find((phase) => phase.label === "Fixer");
+    const hypoPhase = plan.phaseList.find((phase) => phase.label === "Hypo clear");
+
+    expect(developerPhase?.cueEvents.slice(0, 5).map((cue) => cue.label)).toEqual([
+      "Invert 1",
+      "Invert 2",
+      "Invert 3",
+      "Invert 4",
+      "Invert 5",
+    ]);
+    expect(
+      developerPhase?.cueEvents.find(
+        (cue) => cue.id === "developer-agitation-set-0",
+      ),
+    ).toMatchObject({
+      durationSec: 5,
+      endNoticeId: "stop_agitation",
+    });
+    expect(stopPhase?.cueEvents[0]?.label).toBe("Start continuous agitation");
+    expect(fixPhase?.cueEvents[0]).toMatchObject({
+      label: "Agitate continuously for 30 sec",
+      durationSec: 30,
+      endNoticeId: "stop_agitation",
+    });
+    expect(hypoPhase?.cueEvents[0]).toMatchObject({
+      label: "Agitate continuously for 30 sec",
+      durationSec: 30,
+      endNoticeId: "stop_agitation",
+    });
+  });
+
   it("uses 2% per processed unit for Cs41 weakened developer while keeping blix fixed by default", () => {
     const recipe = recipes.find((entry) => entry.id === "cs41-powder");
 
@@ -347,6 +397,45 @@ describe("session planning", () => {
       (developerPhase?.durationSec ?? 1) - 1,
     );
     expect(developerPhase?.cueEvents.length).toBeGreaterThan(2);
+  });
+
+  it("adds the missing Cs41 blix and final-rinse agitation cues from the official instructions", () => {
+    const recipe = recipes.find((entry) => entry.id === "cs41-powder");
+
+    if (!recipe) {
+      throw new Error("Missing Cs41 recipe.");
+    }
+
+    const plan = createSessionPlan(
+      recipe.id,
+      {
+        ...createDefaultInputState(recipe),
+        temperatureF: "102",
+        agitationMode: "intermittent",
+      },
+      defaultAlertProfiles[0],
+    );
+
+    const blixPhase = plan.phaseList.find((phase) => phase.label === "Blix");
+    const finalRinsePhase = plan.phaseList.find(
+      (phase) => phase.label === "Final rinse",
+    );
+
+    expect(blixPhase?.cueEvents[0]).toMatchObject({
+      label: "Agitate continuously for 10 sec",
+      durationSec: 10,
+      endNoticeId: "stop_agitation",
+    });
+    expect(
+      blixPhase?.cueEvents.find((cue) => cue.label === "Invert 1"),
+    ).toMatchObject({
+      atSec: 30,
+    });
+    expect(finalRinsePhase?.cueEvents[0]).toMatchObject({
+      label: "Agitate for 15 sec",
+      durationSec: 15,
+      endNoticeId: "stop_agitation",
+    });
   });
 
   it("derives the DF96 minimum from the official matrix for a supported combo", () => {

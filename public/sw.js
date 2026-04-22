@@ -1,4 +1,4 @@
-const CACHE_NAME = 'film-dev-shell-v5';
+const CACHE_NAME = 'film-dev-shell-v6';
 const OFFLINE_URLS = [
   './',
   './manifest.webmanifest',
@@ -38,6 +38,7 @@ const OFFLINE_URLS = [
   './audio/notices/agitate-continuously-10-sec.mp3',
   './audio/notices/agitate-gently-for-10-sec.mp3',
   './audio/notices/agitate-for-10-sec.mp3',
+  './audio/notices/agitate-15-sec.mp3',
   './audio/notices/agitate-gently-for-5-sec.mp3',
   './audio/notices/stop-agitation.mp3',
   './audio/notices/pre-soak.mp3',

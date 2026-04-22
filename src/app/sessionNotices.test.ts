@@ -46,6 +46,23 @@ describe("sessionNotices", () => {
       label: "Agitate continuously for 30 sec",
       style: "strong",
     };
+    const fifteenSecondCue: CueEvent = {
+      id: "final-rinse-initial",
+      atSec: 0,
+      durationSec: 15,
+      label: "Agitate for 15 sec",
+      style: "strong",
+      endNoticeId: "stop_agitation",
+    };
+    const wrapperCue: CueEvent = {
+      id: "developer-agitation-set-30",
+      atSec: 30,
+      durationSec: 7,
+      label: "Agitation set in progress",
+      style: "soft",
+      noticeId: null,
+      endNoticeId: "stop_agitation",
+    };
     const prepareCue: CueEvent = {
       id: "prepare",
       atSec: 20,
@@ -57,8 +74,11 @@ describe("sessionNotices", () => {
     expect(resolveSessionStartCountdownNotice(3).durationMs).toBe(1200);
     expect(resolveCueNotice(inversionCue)?.id).toBe("invert_3");
     expect(resolveCueNotice(timedCue)?.id).toBe("agitate_continuously_30_sec");
+    expect(resolveCueNotice(fifteenSecondCue)?.id).toBe("agitate_15_sec");
+    expect(resolveCueNotice(wrapperCue)).toBeNull();
     expect(resolveCueNotice(prepareCue)).toBeNull();
     expect(resolveTimedCueEndNotice(timedCue)?.id).toBe("stop_agitation");
+    expect(resolveTimedCueEndNotice(wrapperCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(prepareCue)).toBeNull();
   });
 

@@ -168,6 +168,13 @@ export const sessionNoticeCatalog = {
     ["cue_strong"],
     1200,
   ),
+  agitate_15_sec: createNoticeSpec(
+    "agitate_15_sec",
+    "Agitate for 15 sec",
+    "Agitate for 15 seconds",
+    ["cue_strong"],
+    1200,
+  ),
   agitate_gently_5_sec: createNoticeSpec(
     "agitate_gently_5_sec",
     "Agitate gently for 5 sec",
@@ -333,10 +340,15 @@ const cueNoticeIdByLabel: Partial<Record<string, SessionNoticeId>> = {
   "Agitate continuously for 10 sec": "agitate_continuously_10_sec",
   "Agitate gently for 10 sec": "agitate_gently_10_sec",
   "Agitate for 10 sec": "agitate_10_sec",
+  "Agitate for 15 sec": "agitate_15_sec",
   "Agitate gently for 5 sec": "agitate_gently_5_sec",
 };
 
 let activeVoiceAudio: HTMLAudioElement | null = null;
+
+function isSessionNoticeId(value: string): value is SessionNoticeId {
+  return value in sessionNoticeCatalog;
+}
 
 export function getSessionNoticeById(id: SessionNoticeId) {
   return sessionNoticeCatalog[id];
@@ -375,6 +387,16 @@ export function resolveCueNotice(cue: CueEvent | null | undefined) {
     return null;
   }
 
+  if ("noticeId" in cue) {
+    if (!cue.noticeId) {
+      return null;
+    }
+
+    return isSessionNoticeId(cue.noticeId)
+      ? getSessionNoticeById(cue.noticeId)
+      : null;
+  }
+
   const match = /^Invert (10|[1-9])$/.exec(cue.label);
 
   if (!match) {
@@ -388,6 +410,16 @@ export function resolveCueNotice(cue: CueEvent | null | undefined) {
 export function resolveTimedCueEndNotice(cue: CueEvent | null | undefined) {
   if (!cue?.durationSec || cue.durationSec <= 0) {
     return null;
+  }
+
+  if ("endNoticeId" in cue) {
+    if (!cue.endNoticeId) {
+      return null;
+    }
+
+    return isSessionNoticeId(cue.endNoticeId)
+      ? getSessionNoticeById(cue.endNoticeId)
+      : null;
   }
 
   return cueNoticeIdByLabel[cue.label]
