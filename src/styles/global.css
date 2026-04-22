@@ -520,8 +520,8 @@ button {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 50% 38%, rgba(243, 200, 135, 0.28), transparent 30%),
-    radial-gradient(circle at 50% 62%, rgba(240, 129, 88, 0.22), transparent 34%),
+    radial-gradient(circle at 50% 38%, var(--accent-surface-b), transparent 30%),
+    radial-gradient(circle at 50% 62%, var(--accent-glow), transparent 34%),
     rgba(8, 10, 11, 0.92);
 }
 
@@ -562,8 +562,8 @@ button {
   text-wrap: balance;
   color: var(--feature-ink);
   text-shadow:
-    0 0 40px rgba(243, 200, 135, 0.2),
-    0 0 80px rgba(240, 129, 88, 0.14);
+    0 0 40px var(--accent-surface-b),
+    0 0 80px var(--accent-glow);
 }
 
 .screen-stage {
@@ -992,7 +992,11 @@ button {
 
 .field-range {
   width: 100%;
-  accent-color: var(--amber);
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  accent-color: var(--feature-ink);
+  cursor: pointer;
 }
 
 .field-range:focus-visible {
@@ -1003,10 +1007,12 @@ button {
   height: 0.45rem;
   border-radius: 999px;
   background: var(--panel-inner-border);
+  box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
 .field-range::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 1.15rem;
   height: 1.15rem;
   margin-top: -0.35rem;
@@ -1020,6 +1026,12 @@ button {
   height: 0.45rem;
   border-radius: 999px;
   background: var(--panel-inner-border);
+}
+
+.field-range::-moz-range-progress {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--feature-ink);
 }
 
 .field-range::-moz-range-thumb {
