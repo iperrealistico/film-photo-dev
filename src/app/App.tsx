@@ -85,6 +85,7 @@ import {
   resolveSessionStartCountdownNotice,
   resolveStartSessionNotice,
   resolveStoppedSessionNotice,
+  resolveTimedCueMidpointNotice,
   resolveTimedCueEndNotice,
   stopSessionNoticeVoice,
   type SessionNoticeSpec,
@@ -285,6 +286,7 @@ export function App() {
   const lastPhaseRef = useRef("");
   const lastSessionEventRef = useRef("");
   const lastTimedCueRef = useRef<CueEvent | null>(null);
+  const lastTimedCueMidpointRef = useRef("");
   const lastSessionIdRef = useRef<string | null>(null);
   const lastBlockedReviewPromptRef = useRef("");
   const lastRecoveryPromptRef = useRef("");
@@ -795,6 +797,7 @@ export function App() {
     lastPhaseRef.current = "";
     lastSessionEventRef.current = "";
     lastTimedCueRef.current = null;
+    lastTimedCueMidpointRef.current = "";
     openingPhaseNoticeShownRef.current = null;
 
     if (previousSessionId) {
@@ -1035,6 +1038,44 @@ export function App() {
     }
 
     lastTimedCueRef.current = activeTimedCue;
+  }, [activeSession, runtimeFrame]);
+
+  useEffect(() => {
+    if (!runtimeFrame || !activeSession || activeSession.status !== "running") {
+      return;
+    }
+
+    const activeTimedCue =
+      runtimeFrame.activeCue?.durationSec && runtimeFrame.activeCue.durationSec > 0
+        ? runtimeFrame.activeCue
+        : null;
+
+    if (!activeTimedCue) {
+      return;
+    }
+
+    const midpointNotice = resolveTimedCueMidpointNotice(activeTimedCue);
+
+    if (!midpointNotice) {
+      return;
+    }
+
+    const activeTimedCueDurationSec = activeTimedCue.durationSec ?? 0;
+    const midpointAtSec =
+      activeTimedCue.atSec + Math.round(activeTimedCueDurationSec / 2);
+
+    if (runtimeFrame.elapsedInPhaseSec < midpointAtSec) {
+      return;
+    }
+
+    const midpointSignalId = `${activeSession.sessionId}:${activeTimedCue.id}`;
+
+    if (lastTimedCueMidpointRef.current === midpointSignalId) {
+      return;
+    }
+
+    lastTimedCueMidpointRef.current = midpointSignalId;
+    showSessionNotice(midpointNotice);
   }, [activeSession, runtimeFrame]);
 
   useEffect(() => {

@@ -189,6 +189,13 @@ export const sessionNoticeCatalog = {
     ["cue_soft"],
     1200,
   ),
+  keep_agitating_halfway: createNoticeSpec(
+    "keep_agitating_halfway",
+    "Halfway there",
+    "Keep agitating. Halfway there.",
+    ["cue_soft"],
+    1200,
+  ),
   stop_agitation: createNoticeSpec(
     "stop_agitation",
     "Stop agitation",
@@ -528,6 +535,14 @@ export function resolveTimedCueEndNotice(cue: CueEvent | null | undefined) {
   return cueNoticeIdByLabel[cue.label]
     ? getSessionNoticeById("stop_agitation")
     : null;
+}
+
+export function resolveTimedCueMidpointNotice(cue: CueEvent | null | undefined) {
+  if (!cue?.durationSec || cue.durationSec <= 10) {
+    return null;
+  }
+
+  return getSessionNoticeById("keep_agitating_halfway");
 }
 
 export function listSessionNoticeCacheUrls() {

@@ -10,6 +10,7 @@ import {
   resolvePhaseNotice,
   resolveSessionStartCountdownNotice,
   resolveStartSessionNotice,
+  resolveTimedCueMidpointNotice,
   resolveTimedCueEndNotice,
 } from "./sessionNotices";
 
@@ -89,6 +90,13 @@ describe("sessionNotices", () => {
     expect(resolveCueNotice(fifteenSecondCue)?.id).toBe("agitate_15_sec");
     expect(resolveCueNotice(wrapperCue)).toBeNull();
     expect(resolveCueNotice(prepareCue)?.id).toBe("prepare_to_agitate");
+    expect(resolveTimedCueMidpointNotice(timedCue)?.id).toBe(
+      "keep_agitating_halfway",
+    );
+    expect(resolveTimedCueMidpointNotice(fifteenSecondCue)?.id).toBe(
+      "keep_agitating_halfway",
+    );
+    expect(resolveTimedCueMidpointNotice(wrapperCue)).toBeNull();
     expect(resolveTimedCueEndNotice(timedCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(wrapperCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(prepareCue)).toBeNull();
@@ -109,6 +117,9 @@ describe("sessionNotices", () => {
     );
     expect(listSessionNoticeCacheUrls()).toContain(
       "./audio/notices/prepare-to-agitate.mp3",
+    );
+    expect(listSessionNoticeCacheUrls()).toContain(
+      "./audio/notices/keep-agitating-halfway.mp3",
     );
     expect(getAdditionalVoicePromptById("review_blocked").audioPath).toBe(
       "audio/notices/review-blocked.mp3",

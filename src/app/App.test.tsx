@@ -1576,6 +1576,61 @@ describe("App", () => {
     expect(screen.getByText(/Agitate for 10 sec in 2s/i)).toBeInTheDocument();
   }, 10000);
 
+  it("shows a halfway keep-agitating notice during long timed agitation windows", async () => {
+    const user = userEvent.setup();
+    const audioSpy = vi
+      .spyOn(sessionAudio, "playToneSequence")
+      .mockImplementation(() => undefined);
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+
+    resetClientStorage();
+    storePreferences({
+      speechPromptsEnabled: true,
+      sessionStartCountdownSec: 0,
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(24_000);
+    });
+
+    const audioCallCountBeforeHalfway = audioSpy.mock.calls.length;
+    const voiceCallCountBeforeHalfway = voiceSpy.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/Halfway there/i);
+    expect(audioSpy.mock.calls).toHaveLength(audioCallCountBeforeHalfway + 1);
+    expect(audioSpy.mock.calls.at(-1)?.[0]).toEqual(["cue_soft"]);
+    expect(voiceSpy.mock.calls).toHaveLength(voiceCallCountBeforeHalfway + 1);
+    expect(voiceSpy.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ id: "keep_agitating_halfway" }),
+    );
+  }, 10000);
+
   it("does not emit per-second cue-pulse beeps during a DF96 agitation window", async () => {
     const user = userEvent.setup();
     const audioSpy = vi
