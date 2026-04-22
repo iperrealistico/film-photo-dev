@@ -35,6 +35,14 @@ import {
   startSession as beginSessionState,
   waitForPhaseConfirmation,
 } from "../domain/runtime";
+import {
+  clampGlobalTimeMultiplier,
+  resolveEffectiveGlobalTimeMultiplier,
+  resolveGlobalTimeNowMs,
+  resolveScaledTimerIntervalMs,
+  retuneGlobalTimeState,
+  scaleAppDelayMs,
+} from "../domain/timeScale";
 import type {
   ActiveSessionState,
   CueEvent,
@@ -255,9 +263,16 @@ export function App() {
   const [presets, setPresets] = useState<SavedPreset[]>([]);
   const [debugEntries, setDebugEntries] = useState<DebugLogEntry[]>([]);
   const [debugStats, setDebugStats] = useState<DebugLogStats | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const [toast, setToast] = useState("");
+  const [nowMs, setNowMs] = useState(() =>
+    resolveGlobalTimeNowMs(getInitialPreferences()),
+  );
+  const [toast, setToast] = useState<{
+    hideAtAppMs: number;
+    message: string;
+    sequence: number;
+  } | null>(null);
   const [activeNotice, setActiveNotice] = useState<{
+    hideAtAppMs: number;
     spec: SessionNoticeSpec;
     sequence: number;
   } | null>(null);
@@ -271,8 +286,8 @@ export function App() {
   const lastTimedCueRef = useRef<CueEvent | null>(null);
   const lastSessionIdRef = useRef<string | null>(null);
   const openingPhaseNoticeShownRef = useRef<string | null>(null);
-  const noticeTimeoutRef = useRef<number | null>(null);
   const noticeSequenceRef = useRef(0);
+  const toastSequenceRef = useRef(0);
   const screenRef = useRef<Screen>("recipes");
   const renderedScreenRef = useRef<Screen>("recipes");
   const debugUnlockRef = useRef({
@@ -297,6 +312,8 @@ export function App() {
     activePlan && activeSession
       ? deriveRuntimeFrame(activePlan, activeSession, nowMs)
       : null;
+  const effectiveGlobalTimeMultiplier =
+    resolveEffectiveGlobalTimeMultiplier(preferences);
   const quickThemeTargetMode =
     preferences.themeMode === "standard" ? "ultrared" : "standard";
   const quickThemeLabel =
@@ -375,8 +392,22 @@ export function App() {
     });
   }
 
+  function getAppNowMs(realNowMs = Date.now()) {
+    return resolveGlobalTimeNowMs(preferences, realNowMs);
+  }
+
+  function getRealDelayMs(appDelayMs: number) {
+    return scaleAppDelayMs(appDelayMs, effectiveGlobalTimeMultiplier);
+  }
+
   function showToast(message: string) {
-    setToast(message);
+    const sequence = toastSequenceRef.current + 1;
+    toastSequenceRef.current = sequence;
+    setToast({
+      message,
+      sequence,
+      hideAtAppMs: getAppNowMs() + 2200,
+    });
     logDebugEvent({
       category: "ui",
       event: "toast_shown",
@@ -389,14 +420,13 @@ export function App() {
   function showSessionNotice(spec: SessionNoticeSpec) {
     stopSessionNoticeVoice();
 
-    if (noticeTimeoutRef.current !== null) {
-      window.clearTimeout(noticeTimeoutRef.current);
-      noticeTimeoutRef.current = null;
-    }
-
     const sequence = noticeSequenceRef.current + 1;
     noticeSequenceRef.current = sequence;
-    setActiveNotice({ spec, sequence });
+    setActiveNotice({
+      spec,
+      sequence,
+      hideAtAppMs: getAppNowMs() + spec.durationMs,
+    });
 
     logDebugEvent({
       category: "runtime",
@@ -419,13 +449,6 @@ export function App() {
         volume: preferences.speechPromptVolume,
       });
     }
-
-    noticeTimeoutRef.current = window.setTimeout(() => {
-      noticeTimeoutRef.current = null;
-      setActiveNotice((current) =>
-        current?.sequence === sequence ? null : current,
-      );
-    }, spec.durationMs);
   }
 
   function prepareSessionStartState(plan: SessionPlan, nowMs: number) {
@@ -518,7 +541,7 @@ export function App() {
     const snapshot = loadActiveSessionSnapshot();
 
     if (snapshot && !cancelled) {
-      const hydratedState = hydrateActiveSession(snapshot.state, Date.now());
+      const hydratedState = hydrateActiveSession(snapshot.state, getAppNowMs());
 
       setSelectedRecipeId(snapshot.plan.recipeId);
       setDrafts((current) => ({
@@ -566,10 +589,15 @@ export function App() {
   }, [preferences.themeMode]);
 
   useEffect(() => {
+    setNowMs(getAppNowMs());
+  }, [
+    effectiveGlobalTimeMultiplier,
+    preferences.globalTimeAnchorAppMs,
+    preferences.globalTimeAnchorRealMs,
+  ]);
+
+  useEffect(() => {
     return () => {
-      if (noticeTimeoutRef.current !== null) {
-        window.clearTimeout(noticeTimeoutRef.current);
-      }
       stopSessionNoticeVoice();
     };
   }, []);
@@ -589,12 +617,49 @@ export function App() {
 
   useEffect(() => {
     if (toast) {
-      const timeout = window.setTimeout(() => setToast(""), 2200);
+      const timeout = window.setTimeout(
+        () => {
+          setToast((current) =>
+            current?.sequence === toast.sequence ? null : current,
+          );
+        },
+        getRealDelayMs(Math.max(0, toast.hideAtAppMs - getAppNowMs())),
+      );
+
       return () => window.clearTimeout(timeout);
     }
 
     return undefined;
-  }, [toast]);
+  }, [
+    toast,
+    effectiveGlobalTimeMultiplier,
+    preferences.globalTimeAnchorAppMs,
+    preferences.globalTimeAnchorRealMs,
+  ]);
+
+  useEffect(() => {
+    if (!activeNotice) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(
+      () => {
+        setActiveNotice((current) =>
+          current?.sequence === activeNotice.sequence ? null : current,
+        );
+      },
+      getRealDelayMs(
+        Math.max(0, activeNotice.hideAtAppMs - getAppNowMs()),
+      ),
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    activeNotice,
+    effectiveGlobalTimeMultiplier,
+    preferences.globalTimeAnchorAppMs,
+    preferences.globalTimeAnchorRealMs,
+  ]);
 
   useLayoutEffect(() => {
     if (renderedScreenRef.current === screen) {
@@ -655,7 +720,7 @@ export function App() {
 
     saveActiveSessionSnapshot(activePlan, {
       ...activeSession,
-      lastPersistedAtMs: Date.now(),
+      lastPersistedAtMs: getAppNowMs(),
     });
   }, [activePlan, activeSession]);
 
@@ -668,12 +733,20 @@ export function App() {
       return undefined;
     }
 
+    const intervalMs = resolveScaledTimerIntervalMs(
+      effectiveGlobalTimeMultiplier,
+    );
     const interval = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 250);
+      setNowMs(getAppNowMs());
+    }, intervalMs);
 
     return () => window.clearInterval(interval);
-  }, [activeSession]);
+  }, [
+    activeSession,
+    effectiveGlobalTimeMultiplier,
+    preferences.globalTimeAnchorAppMs,
+    preferences.globalTimeAnchorRealMs,
+  ]);
 
   useEffect(() => {
     const sessionId = activeSession?.sessionId ?? null;
@@ -693,11 +766,6 @@ export function App() {
     if (previousSessionId) {
       setActiveNotice(null);
       stopSessionNoticeVoice();
-
-      if (noticeTimeoutRef.current !== null) {
-        window.clearTimeout(noticeTimeoutRef.current);
-        noticeTimeoutRef.current = null;
-      }
     }
   }, [activeSession?.sessionId]);
 
@@ -712,7 +780,9 @@ export function App() {
 
     const sessionId = activeSession.sessionId;
     const scheduledStartAtMs = activeSession.scheduledStartAtMs;
-    const delayMs = Math.max(0, scheduledStartAtMs - Date.now());
+    const delayMs = getRealDelayMs(
+      Math.max(0, scheduledStartAtMs - getAppNowMs()),
+    );
     const timeout = window.setTimeout(() => {
       setActiveSession((current) => {
         if (
@@ -733,6 +803,9 @@ export function App() {
     activeSession?.scheduledStartAtMs,
     activeSession?.sessionId,
     activeSession?.status,
+    effectiveGlobalTimeMultiplier,
+    preferences.globalTimeAnchorAppMs,
+    preferences.globalTimeAnchorRealMs,
   ]);
 
   useEffect(() => {
@@ -752,7 +825,7 @@ export function App() {
         sessionId: activeSession.sessionId,
       });
       setActiveSession((current) =>
-        current ? completeSession(current, Date.now()) : current,
+        current ? completeSession(current, getAppNowMs()) : current,
       );
     }
   }, [runtimeFrame, activeSession, selectedRecipeId]);
@@ -854,7 +927,7 @@ export function App() {
       });
       setActiveSession((current) =>
         current && current.status === "running"
-          ? waitForPhaseConfirmation(current, Date.now(), nextPhaseLabel)
+          ? waitForPhaseConfirmation(current, getAppNowMs(), nextPhaseLabel)
           : current,
       );
       return;
@@ -932,7 +1005,7 @@ export function App() {
     appVersion,
     recipeVersion,
     selectedRecipeId,
-    generatedAt: new Date(nowMs).toISOString(),
+    generatedAt: new Date().toISOString(),
     plan: livePlan,
     activeSession: activeSession ?? undefined,
     diagnostics: [
@@ -947,6 +1020,8 @@ export function App() {
       `phase-confirm:${preferences.phaseConfirmationEnabled}`,
       `presets:${presets.length}`,
       `debug-unlocked:${preferences.debugUnlocked}`,
+      `debug-mode:${preferences.debugModeEnabled}`,
+      `time-multiplier:${effectiveGlobalTimeMultiplier}`,
     ],
     debugStats: debugStats ?? undefined,
     recentDebugLogs: debugEntries,
@@ -1057,7 +1132,7 @@ export function App() {
       return;
     }
 
-    const now = Date.now();
+    const now = getAppNowMs();
     const {
       countdownSec,
       session,
@@ -1325,6 +1400,40 @@ export function App() {
     }));
   }
 
+  function handleToggleDebugMode() {
+    const nextValue = !preferences.debugModeEnabled;
+
+    logUiEvent("debug_mode_toggled", {
+      nextValue,
+    });
+    setPreferences((current) =>
+      retuneGlobalTimeState(
+        current,
+        {
+          debugModeEnabled: nextValue,
+        },
+        Date.now(),
+      ),
+    );
+  }
+
+  function handleSetGlobalTimeMultiplier(nextValue: number) {
+    const resolvedValue = clampGlobalTimeMultiplier(nextValue);
+
+    logUiEvent("global_time_multiplier_changed", {
+      nextValue: resolvedValue,
+    });
+    setPreferences((current) =>
+      retuneGlobalTimeState(
+        current,
+        {
+          globalTimeMultiplier: resolvedValue,
+        },
+        Date.now(),
+      ),
+    );
+  }
+
   function handleTogglePhaseConfirmation() {
     logUiEvent("phase_confirmation_toggled", {
       nextValue: !preferences.phaseConfirmationEnabled,
@@ -1573,20 +1682,20 @@ export function App() {
                     current &&
                     current.status === "ready" &&
                     !current.scheduledStartAtMs
-                      ? beginSessionState(current, Date.now())
+                      ? beginSessionState(current, getAppNowMs())
                       : current,
                   );
                 }}
                 onPause={() => {
                   logUiEvent("session_paused_from_console");
                   setActiveSession((current) =>
-                    current ? pauseSession(current, Date.now()) : current,
+                    current ? pauseSession(current, getAppNowMs()) : current,
                   );
                 }}
                 onResume={() => {
                   logUiEvent("session_resumed_from_console");
                   setActiveSession((current) =>
-                    current ? resumeSession(current, Date.now()) : current,
+                    current ? resumeSession(current, getAppNowMs()) : current,
                   );
                 }}
                 onConfirmPhaseStart={() => {
@@ -1604,26 +1713,26 @@ export function App() {
                       ? current
                         ? completeManualPhase(
                             current,
-                            Date.now(),
+                            getAppNowMs(),
                             runtimeFrame.currentPhase.id,
                             phaseLabel,
                           )
                         : current
                       : current
-                        ? confirmPhaseStart(current, Date.now(), phaseLabel)
+                        ? confirmPhaseStart(current, getAppNowMs(), phaseLabel)
                         : current,
                   );
                 }}
                 onConfirmRecovery={() => {
                   logUiEvent("session_recovery_confirmed");
                   setActiveSession((current) =>
-                    current ? confirmRecovery(current, Date.now()) : current,
+                    current ? confirmRecovery(current, getAppNowMs()) : current,
                   );
                 }}
                 onAbort={() => {
                   logUiEvent("session_aborted");
                   setActiveSession((current) =>
-                    current ? abortSession(current, Date.now()) : current,
+                    current ? abortSession(current, getAppNowMs()) : current,
                   );
                 }}
                 onReset={handleResetSession}
@@ -1657,6 +1766,8 @@ export function App() {
                 onSetSpeechPromptRate={handleSetSpeechPromptRate}
                 onSetSpeechPromptVolume={handleSetSpeechPromptVolume}
                 onSetSessionStartCountdown={handleSetSessionStartCountdown}
+                onToggleDebugMode={handleToggleDebugMode}
+                onSetGlobalTimeMultiplier={handleSetGlobalTimeMultiplier}
                 onTogglePhaseConfirmation={handleTogglePhaseConfirmation}
                 onToggleDiagnostics={handleToggleDiagnostics}
                 onExportPresets={handleExportPresets}
@@ -1763,7 +1874,7 @@ export function App() {
           </nav>
         ) : null}
 
-        {toast ? <div className="toast">{toast}</div> : null}
+        {toast ? <div className="toast">{toast.message}</div> : null}
       </main>
       {activeNotice ? (
         <SessionNoticeOverlay

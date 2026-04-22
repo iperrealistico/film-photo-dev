@@ -85,7 +85,7 @@ describe("sessionNotices", () => {
     expect(resolveCueNotice(timedCue)?.id).toBe("agitate_continuously_30_sec");
     expect(resolveCueNotice(fifteenSecondCue)?.id).toBe("agitate_15_sec");
     expect(resolveCueNotice(wrapperCue)).toBeNull();
-    expect(resolveCueNotice(prepareCue)).toBeNull();
+    expect(resolveCueNotice(prepareCue)?.id).toBe("prepare_to_agitate");
     expect(resolveTimedCueEndNotice(timedCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(wrapperCue)?.id).toBe("stop_agitation");
     expect(resolveTimedCueEndNotice(prepareCue)).toBeNull();
@@ -103,6 +103,9 @@ describe("sessionNotices", () => {
     );
     expect(listSessionNoticeCacheUrls()).toContain(
       "./audio/notices/drain-monobath.mp3",
+    );
+    expect(listSessionNoticeCacheUrls()).toContain(
+      "./audio/notices/prepare-to-agitate.mp3",
     );
   });
 });
