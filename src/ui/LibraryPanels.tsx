@@ -10,6 +10,7 @@ import type { PreferenceState } from "../storage/preferences";
 import {
   BookmarkIcon,
   BugIcon,
+  CheckCircleIcon,
   ClipboardIcon,
   DownloadIcon,
   MoonIcon,
@@ -99,6 +100,43 @@ interface SettingsPanelProps {
   onRecordBreadcrumb: () => void;
 }
 
+const themeModeOptions = [
+  {
+    mode: "daylight",
+    eyebrow: "Bright room",
+    label: "Paper light",
+    description: "Warm paper-white surfaces for setup, review, and daylight planning.",
+    icon: SunIcon,
+  },
+  {
+    mode: "standard",
+    eyebrow: "Neutral shell",
+    label: "White light",
+    description: "Balanced contrast with the cleanest all-purpose view across the app.",
+    icon: SparkIcon,
+  },
+  {
+    mode: "red_safe",
+    eyebrow: "Dim room",
+    label: "Reduced light",
+    description: "A softer red tint that lowers glare before you go fully darkroom-first.",
+    icon: MoonIcon,
+  },
+  {
+    mode: "ultrared",
+    eyebrow: "Darkroom",
+    label: "Red safe",
+    description: "Maximum red-first output for tray work, timing, and wet-handed sessions.",
+    icon: ShieldIcon,
+  },
+] satisfies Array<{
+  mode: ThemeMode;
+  eyebrow: string;
+  label: string;
+  description: string;
+  icon: typeof SunIcon;
+}>;
+
 export function SettingsPanel({
   preferences,
   presets,
@@ -123,6 +161,11 @@ export function SettingsPanel({
   onClearDebugLogs,
   onRecordBreadcrumb,
 }: SettingsPanelProps) {
+  const activeThemeOption =
+    themeModeOptions.find((option) => option.mode === preferences.themeMode) ??
+    themeModeOptions[1];
+  const ActiveThemeIcon = activeThemeOption.icon;
+
   return (
     <section className="stack">
       <div className="section-heading">
@@ -148,64 +191,66 @@ export function SettingsPanel({
             </span>
           </h3>
           <p>
-            Paper light opens the app for bright-room planning. White light
-            keeps the neutral shell, Reduced light softens it, and Red safe
-            stays fully red-first for darkroom work.
+            Choose the shell that matches the room. Paper light is brightest,
+            White light stays neutral, Reduced light softens glare, and Red
+            safe keeps the app fully red-first in the darkroom.
           </p>
+        </div>
+        <div className="theme-mode-current" aria-live="polite">
+          <span className="theme-mode-current__label">Current mode</span>
+          <span className="theme-mode-current__value">
+            <ActiveThemeIcon aria-hidden="true" />
+            <strong>{activeThemeOption.label}</strong>
+          </span>
+          <p>{activeThemeOption.description}</p>
         </div>
         <div
           className="theme-mode-grid"
           role="group"
           aria-label="Darkroom light mode"
         >
-          <button
-            type="button"
-            className={`theme-mode-button ${preferences.themeMode === "daylight" ? "is-active" : ""}`}
-            aria-pressed={preferences.themeMode === "daylight"}
-            onClick={() => onSelectThemeMode("daylight")}
-          >
-            <span className="button-label">
-              <SunIcon aria-hidden="true" />
-              <span>Daylight</span>
-            </span>
-            <strong>Paper light</strong>
-          </button>
-          <button
-            type="button"
-            className={`theme-mode-button ${preferences.themeMode === "standard" ? "is-active" : ""}`}
-            aria-pressed={preferences.themeMode === "standard"}
-            onClick={() => onSelectThemeMode("standard")}
-          >
-            <span className="button-label">
-              <SparkIcon aria-hidden="true" />
-              <span>Standard</span>
-            </span>
-            <strong>White light</strong>
-          </button>
-          <button
-            type="button"
-            className={`theme-mode-button ${preferences.themeMode === "red_safe" ? "is-active" : ""}`}
-            aria-pressed={preferences.themeMode === "red_safe"}
-            onClick={() => onSelectThemeMode("red_safe")}
-          >
-            <span className="button-label">
-              <MoonIcon aria-hidden="true" />
-              <span>Reduced</span>
-            </span>
-            <strong>Reduced light</strong>
-          </button>
-          <button
-            type="button"
-            className={`theme-mode-button ${preferences.themeMode === "ultrared" ? "is-active" : ""}`}
-            aria-pressed={preferences.themeMode === "ultrared"}
-            onClick={() => onSelectThemeMode("ultrared")}
-          >
-            <span className="button-label">
-              <ShieldIcon aria-hidden="true" />
-              <span>Darkroom</span>
-            </span>
-            <strong>Red safe</strong>
-          </button>
+          {themeModeOptions.map((option) => {
+            const ThemeIcon = option.icon;
+            const isActive = preferences.themeMode === option.mode;
+
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                className={`theme-mode-button ${isActive ? "is-active" : ""}`}
+                aria-pressed={isActive}
+                onClick={() => onSelectThemeMode(option.mode)}
+              >
+                <span className="theme-mode-button__topline">
+                  <span className="theme-mode-button__eyebrow">
+                    {option.eyebrow}
+                  </span>
+                  <span
+                    className="theme-mode-button__status"
+                    aria-hidden="true"
+                  >
+                    {isActive ? (
+                      <>
+                        <CheckCircleIcon aria-hidden="true" />
+                        <span>Selected</span>
+                      </>
+                    ) : (
+                      <span>Choose</span>
+                    )}
+                  </span>
+                </span>
+                <span className="theme-mode-button__main">
+                  <span className="surface-icon theme-mode-button__icon">
+                    <ThemeIcon aria-hidden="true" />
+                  </span>
+                  <span className="theme-mode-button__copy">
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

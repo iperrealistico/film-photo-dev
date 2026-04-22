@@ -663,7 +663,7 @@ describe("App", () => {
     );
   }, 10000);
 
-  it("keeps the main navigation controls glove-sized while leaving settings compact", async () => {
+  it("keeps the main navigation controls glove-sized across the shell", async () => {
     const user = userEvent.setup();
 
     render(<App />);
@@ -679,8 +679,7 @@ describe("App", () => {
     );
 
     const settingsNavButton = screen.getByRole("button", { name: /^Settings$/i });
-    expect(settingsNavButton).toHaveClass("bottom-nav__button--compact");
-    expect(settingsNavButton).not.toHaveClass("glove-button");
+    expect(settingsNavButton).toHaveClass("glove-button");
 
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
 
@@ -698,6 +697,30 @@ describe("App", () => {
     );
     expect(screen.getByRole("button", { name: /Save preset/i })).toHaveClass(
       "cta-button",
+    );
+  });
+
+  it("shows the selected light mode summary in settings", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/i }));
+
+    const currentMode = await screen.findByText(/Current mode/i);
+    const currentModeCard = currentMode.closest(".theme-mode-current");
+
+    expect(currentModeCard).not.toBeNull();
+    expect(currentModeCard).toHaveTextContent(/White light/i);
+    expect(currentModeCard).toHaveTextContent(
+      /Balanced contrast with the cleanest all-purpose view/i,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Paper light/i }));
+
+    expect(currentModeCard).toHaveTextContent(/Paper light/i);
+    expect(currentModeCard).toHaveTextContent(
+      /Warm paper-white surfaces for setup, review, and daylight planning/i,
     );
   });
 

@@ -1746,9 +1746,7 @@ export function App() {
                     type="button"
                     className={[
                       screen === item.screen ? "is-active" : "",
-                      item.screen === "settings"
-                        ? "bottom-nav__button--compact"
-                        : "glove-button",
+                      "glove-button",
                     ]
                       .filter(Boolean)
                       .join(" ")}
