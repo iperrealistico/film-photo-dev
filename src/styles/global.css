@@ -990,6 +990,11 @@ button {
     background-color var(--motion-fast) ease;
 }
 
+.field-input::placeholder {
+  color: var(--feature-ink-muted);
+  opacity: 1;
+}
+
 .field-range {
   width: 100%;
   appearance: none;
@@ -1804,15 +1809,15 @@ button {
 }
 
 .theme-mode-button.is-active .theme-mode-button__status {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.16);
-  color: var(--text);
+  background: var(--accent-surface-a);
+  border-color: var(--accent-border);
+  color: var(--feature-ink);
 }
 
 .theme-mode-button.is-active .theme-mode-button__icon {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.16);
-  color: var(--text);
+  background: var(--accent-surface-a);
+  border-color: var(--accent-border);
+  color: var(--feature-ink);
 }
 
 @keyframes screen-enter-forward {
