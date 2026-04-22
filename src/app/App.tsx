@@ -835,14 +835,8 @@ export function App() {
     });
 
     const cueNotice = resolveCueNotice(exactCue);
-    const shouldSuppressInitialCueNotice =
-      cueNotice &&
-      exactCue.atSec === 0 &&
-      runtimeFrame.phaseIndex === 0 &&
-      runtimeFrame.elapsedInPhaseSec === 0 &&
-      activeSession.eventLog.at(-1)?.type === "started";
 
-    if (cueNotice && !shouldSuppressInitialCueNotice) {
+    if (cueNotice) {
       showSessionNotice(cueNotice);
     }
 

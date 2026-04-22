@@ -54,6 +54,7 @@ describe("sessionNotices", () => {
     };
 
     expect(resolveSessionStartCountdownNotice(3).id).toBe("starting_in_3");
+    expect(resolveSessionStartCountdownNotice(3).durationMs).toBe(1200);
     expect(resolveCueNotice(inversionCue)?.id).toBe("invert_3");
     expect(resolveCueNotice(timedCue)?.id).toBe("agitate_continuously_30_sec");
     expect(resolveCueNotice(prepareCue)).toBeNull();

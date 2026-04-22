@@ -326,6 +326,14 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
     await user.click(screen.getByRole("button", { name: /Review plan/i }));
 
     const baseNow = Date.now();
@@ -350,18 +358,70 @@ describe("App", () => {
       await vi.advanceTimersByTimeAsync(2_500);
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      /Starting in 3 seconds/i,
-    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Pause timer/i }),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(700);
     });
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Agitate continuously for 30 sec/i,
+    );
     expect(
       screen.getByRole("button", { name: /Pause timer/i }),
     ).toBeInTheDocument();
+  }, 10000);
+
+  it("plays the countdown voice prompt and then the first DF96 agitation voice prompt", async () => {
+    const user = userEvent.setup();
+    const voiceSpy = vi
+      .spyOn(sessionNotices, "playSessionNoticeVoice")
+      .mockResolvedValue(undefined);
+
+    resetClientStorage();
+    storePreferences({ speechPromptsEnabled: true });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Df96 monobath/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Monobath temperature/i),
+      "75",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Agitation method/i),
+      "intermittent",
+    );
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    expect(
+      voiceSpy.mock.calls.some(
+        ([spec]) => spec?.id === "starting_in_3",
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_200);
+    });
+
+    expect(
+      voiceSpy.mock.calls.some(
+        ([spec]) => spec?.id === "agitate_continuously_30_sec",
+      ),
+    ).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Agitate continuously for 30 sec/i,
+    );
   }, 10000);
 
   it("lets developers change the session start countdown in hidden settings", async () => {
@@ -416,6 +476,59 @@ describe("App", () => {
       "cta-button",
     );
   });
+
+  it("shows the first HC-110 continuous-agitation notice right after the countdown", async () => {
+    const user = userEvent.setup();
+
+    resetClientStorage();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /HC-110/i }));
+    await user.selectOptions(screen.getByLabelText(/^Agitation$/i), "continuous");
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_200);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Start continuous agitation/i,
+    );
+  }, 10000);
+
+  it("shows the first Cs41 developer agitation notice after the pre-soak handoff", async () => {
+    const user = userEvent.setup();
+
+    resetClientStorage();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Cs41 powder kit/i }));
+    await user.click(screen.getByRole("button", { name: /Review plan/i }));
+
+    const baseNow = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(baseNow);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /Start session/i }));
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(63_200);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Agitate continuously for 10 sec/i,
+    );
+  }, 10000);
 
   it("keeps the main navigation controls glove-sized while leaving settings compact", async () => {
     const user = userEvent.setup();

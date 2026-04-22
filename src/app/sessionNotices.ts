@@ -18,6 +18,8 @@ function createNoticeSpec<TId extends string>(
   } as const;
 }
 
+const countdownNoticeDurationMs = 1200;
+
 export const sessionNoticeCatalog = {
   start_session: createNoticeSpec(
     "start_session",
@@ -30,70 +32,70 @@ export const sessionNoticeCatalog = {
     "Starting in 1 second",
     "Starting in one second",
     ["phase_start"],
-    1000,
+    countdownNoticeDurationMs,
   ),
   starting_in_2: createNoticeSpec(
     "starting_in_2",
     "Starting in 2 seconds",
     "Starting in two seconds",
     ["phase_start"],
-    2000,
+    countdownNoticeDurationMs,
   ),
   starting_in_3: createNoticeSpec(
     "starting_in_3",
     "Starting in 3 seconds",
     "Starting in three seconds",
     ["phase_start"],
-    3000,
+    countdownNoticeDurationMs,
   ),
   starting_in_4: createNoticeSpec(
     "starting_in_4",
     "Starting in 4 seconds",
     "Starting in four seconds",
     ["phase_start"],
-    4000,
+    countdownNoticeDurationMs,
   ),
   starting_in_5: createNoticeSpec(
     "starting_in_5",
     "Starting in 5 seconds",
     "Starting in five seconds",
     ["phase_start"],
-    5000,
+    countdownNoticeDurationMs,
   ),
   starting_in_6: createNoticeSpec(
     "starting_in_6",
     "Starting in 6 seconds",
     "Starting in six seconds",
     ["phase_start"],
-    6000,
+    countdownNoticeDurationMs,
   ),
   starting_in_7: createNoticeSpec(
     "starting_in_7",
     "Starting in 7 seconds",
     "Starting in seven seconds",
     ["phase_start"],
-    7000,
+    countdownNoticeDurationMs,
   ),
   starting_in_8: createNoticeSpec(
     "starting_in_8",
     "Starting in 8 seconds",
     "Starting in eight seconds",
     ["phase_start"],
-    8000,
+    countdownNoticeDurationMs,
   ),
   starting_in_9: createNoticeSpec(
     "starting_in_9",
     "Starting in 9 seconds",
     "Starting in nine seconds",
     ["phase_start"],
-    9000,
+    countdownNoticeDurationMs,
   ),
   starting_in_10: createNoticeSpec(
     "starting_in_10",
     "Starting in 10 seconds",
     "Starting in ten seconds",
     ["phase_start"],
-    10000,
+    countdownNoticeDurationMs,
   ),
   session_complete: createNoticeSpec(
     "session_complete",
